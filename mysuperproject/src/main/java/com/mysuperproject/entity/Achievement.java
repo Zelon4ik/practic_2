@@ -1,5 +1,8 @@
 package com.mysuperproject.entity;
 
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,8 +12,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(name = "achievements")
 public class Achievement {
+    @Id(name = "id")
     private Integer id;
+
+    @Column(name = "name")
     private String name;
+
+    @Column(name = "requirement_desc")
     private String requirementDesc;
 }
