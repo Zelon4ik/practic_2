@@ -1,11 +1,16 @@
 package com.mysuperproject;
 
+import com.mysuperproject.dao.UserDao;
 import com.mysuperproject.entity.Achievement;
 import com.mysuperproject.entity.Game;
 import com.mysuperproject.entity.GameSession;
 import com.mysuperproject.entity.User;
+import com.mysuperproject.infrastructure.email.SmtpEmailSender;
+import com.mysuperproject.infrastructure.security.BcryptPasswordHasher;
 import com.mysuperproject.service.GameService;
 import com.mysuperproject.service.UserService;
+import com.mysuperproject.service.port.EmailSender;
+import com.mysuperproject.service.port.PasswordHasher;
 import com.mysuperproject.util.ConnectionPool;
 import com.mysuperproject.util.PropertiesUtil;
 import java.util.List;
@@ -15,7 +20,12 @@ import org.flywaydb.core.Flyway;
 
 public class Main {
     private static final Scanner scanner = new Scanner(System.in);
-    private static final UserService userService = new UserService();
+
+    private static final UserDao userDao = new UserDao();
+    private static final PasswordHasher passwordHasher = new BcryptPasswordHasher();
+    private static final EmailSender emailSender = new SmtpEmailSender();
+    private static final UserService userService =
+            new UserService(userDao, passwordHasher, emailSender);
     private static final GameService gameService = new GameService();
     private static User currentUser = null;
 

@@ -1,0 +1,117 @@
+/* styles.css */
+
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -fx-background-color: #F4F7F6;
+    -fx-font-size: 14px;
+}
+
+/* Titles */
+.title-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+}
+
+.subtitle-label {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34495E;
+}
+
+/* Text Fields */
+.text-field {
+    -fx-background-color: white;
+    -fx-border-color: #BDC3C7;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+    -fx-padding: 8px;
+}
+.text-field:focused {
+    -fx-border-color: #3498DB;
+    -fx-border-width: 2px;
+}
+
+/* Buttons */
+.button {
+    -fx-background-color: #ECF0F1;
+    -fx-text-fill: #2C3E50;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+    -fx-padding: 8px 15px;
+    -fx-cursor: hand;
+}
+.button:hover {
+    -fx-background-color: #BDC3C7;
+}
+
+.button-primary {
+    -fx-background-color: #3498DB;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.button-primary:hover {
+    -fx-background-color: #2980B9;
+}
+
+.button-success {
+    -fx-background-color: #2ECC71;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.button-success:hover {
+    -fx-background-color: #27AE60;
+}
+
+.button-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: #E74C3C;
+}
+.button-danger:hover {
+    -fx-text-fill: #C0392B;
+    -fx-underline: true;
+}
+
+.button-link {
+    -fx-background-color: transparent;
+    -fx-text-fill: #7F8C8D;
+}
+.button-link:hover {
+    -fx-text-fill: #34495E;
+    -fx-underline: true;
+}
+
+/* Table */
+.table-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #BDC3C7;
+    -fx-border-radius: 5px;
+}
+.table-view .column-header-background {
+    -fx-background-color: #ECF0F1;
+}
+.table-view .column-header {
+    -fx-background-color: transparent;
+}
+.table-view .table-cell {
+    -fx-font-size: 13px;
+    -fx-text-fill: #2C3E50;
+}
+.table-row-cell:odd {
+    -fx-background-color: #FAFAFA;
+}
+.table-row-cell:even {
+    -fx-background-color: white;
+}
+.table-row-cell:selected {
+    -fx-background-color: #3498DB;
+    -fx-text-fill: white;
+}
+
+/* Panels */
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 3);
+    -fx-padding: 20px;
+}

@@ -3,9 +3,11 @@ package com.mysuperproject.service;
 import com.mysuperproject.dao.AchievementDao;
 import com.mysuperproject.dao.GameDao;
 import com.mysuperproject.dao.GameSessionDao;
+import com.mysuperproject.dao.QuestionDao;
 import com.mysuperproject.entity.Achievement;
 import com.mysuperproject.entity.Game;
 import com.mysuperproject.entity.GameSession;
+import com.mysuperproject.entity.Question;
 import com.mysuperproject.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,9 +17,30 @@ public class GameService {
     private final GameSessionDao gameSessionDao = new GameSessionDao();
     private final AchievementDao achievementDao = new AchievementDao();
     private final GameDao gameDao = new GameDao();
+    private final QuestionDao questionDao = new QuestionDao();
 
     public Game getGameById(int id) {
         return gameDao.findById(id).orElse(null);
+    }
+
+    public List<Game> getAllGames() {
+        return gameDao.findAll();
+    }
+
+    public List<Question> getQuestionsForGame(int gameId) {
+        return questionDao.findByGameId(gameId);
+    }
+
+    public void addQuestion(int gameId, String text, String answer) {
+        Question q = new Question();
+        q.setGameId(gameId);
+        q.setQuestionText(text);
+        q.setCorrectAnswer(answer);
+        questionDao.save(q);
+    }
+
+    public void deleteQuestion(int questionId) {
+        questionDao.delete(questionId);
     }
 
     public void playGame(User user, Game game, int score, int mistakes) {

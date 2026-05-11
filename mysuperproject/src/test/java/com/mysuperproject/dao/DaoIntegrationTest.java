@@ -99,4 +99,77 @@ public class DaoIntegrationTest extends AbstractIntegrationTest {
 
         achievementDao.delete(savedAchievement.getId());
     }
+
+    @Test
+    void testGameSessionDao() {
+        // Setup dependencies
+        UserDao userDao = new UserDao();
+        User user =
+                userDao.save(
+                        User.builder().username("sessionuser").email("sess@example.com").build());
+
+        SubjectDao subjectDao = new SubjectDao();
+        Subject subject = subjectDao.save(Subject.builder().name("History").build());
+
+        GameDao gameDao = new GameDao();
+        Game game =
+                gameDao.save(
+                        Game.builder()
+                                .subjectId(subject.getId())
+                                .title("History Quiz")
+                                .maxScore(10)
+                                .build());
+
+        // Test GameSession
+        GameSessionDao sessionDao = new GameSessionDao();
+        GameSession session =
+                GameSession.builder()
+                        .userId(user.getId())
+                        .gameId(game.getId())
+                        .score(8)
+                        .mistakesCount(2)
+                        .completedAt(LocalDateTime.now())
+                        .build();
+
+        GameSession savedSession = sessionDao.save(session);
+        assertThat(savedSession.getId()).isNotNull();
+
+        Optional<GameSession> foundSession = sessionDao.findById(savedSession.getId());
+        assertThat(foundSession).isPresent();
+        assertThat(foundSession.get().getScore()).isEqualTo(8);
+
+        // Cleanup
+        sessionDao.delete(savedSession.getId());
+        gameDao.delete(game.getId());
+        subjectDao.delete(subject.getId());
+        userDao.delete(user.getId());
+    }
+
+    @Test
+    void testUserAchievements() {
+        UserDao userDao = new UserDao();
+        User user =
+                userDao.save(
+                        User.builder()
+                                .username("achieveuser")
+                                .email("achieve@example.com")
+                                .build());
+
+        AchievementDao achievementDao = new AchievementDao();
+        Achievement achievement =
+                achievementDao.save(
+                        Achievement.builder().name("Master").requirementDesc("Mastered").build());
+
+        // Assign achievement
+        achievementDao.assignAchievementToUser(user.getId(), achievement.getId());
+
+        // Find achievements for user
+        List<Achievement> userAchievements = achievementDao.findAchievementsByUserId(user.getId());
+        assertThat(userAchievements).hasSize(1);
+        assertThat(userAchievements.get(0).getName()).isEqualTo("Master");
+
+        // Cleanup
+        achievementDao.delete(achievement.getId());
+        userDao.delete(user.getId());
+    }
 }

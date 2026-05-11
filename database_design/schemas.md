@@ -17,6 +17,7 @@ flowchart TD
     G[Гра_Активність]:::entity
     S[Предмет_Тема]:::entity
     A[Досягнення]:::entity
+    Q[Завдання_Питання]:::entity
 
     %% Атрибути Користувача
     U_id([ID]):::attribute --- U
@@ -27,6 +28,11 @@ flowchart TD
     G_id([ID]):::attribute --- G
     G_t([title]):::attribute --- G
     G_m([max_score]):::attribute --- G
+
+    %% Атрибути Завдання
+    Q_id([ID]):::attribute --- Q
+    Q_text([question_text]):::attribute --- Q
+    Q_ans([correct_answer]):::attribute --- Q
 
     %% Атрибути Предмету
     S_id([ID]):::attribute --- S
@@ -40,6 +46,10 @@ flowchart TD
     S_G{Містить}:::relationship
     S ---|1| S_G
     S_G ---|N| G
+
+    G_Q{Має}:::relationship
+    G ---|1| G_Q
+    G_Q ---|N| Q
 
     U_G{Проходить <br> M:M}:::relationship
     U ---|M| U_G
@@ -67,6 +77,7 @@ erDiagram
     USERS ||--o{ GAME_SESSIONS : "проходить (1:M)"
     USERS ||--o{ USER_ACHIEVEMENTS : "отримує (1:M)"
     GAMES ||--o{ GAME_SESSIONS : "має записи (1:M)"
+    GAMES ||--o{ QUESTIONS : "має завдання (1:M)"
     SUBJECTS ||--o{ GAMES : "містить (1:M)"
     ACHIEVEMENTS ||--o{ USER_ACHIEVEMENTS : "присвоюється (1:M)"
 
@@ -86,6 +97,12 @@ erDiagram
         int subject_id FK
         varchar title
         int max_score
+    }
+    QUESTIONS {
+        int id PK
+        int game_id FK
+        varchar question_text
+        varchar correct_answer
     }
     GAME_SESSIONS {
         int id PK
