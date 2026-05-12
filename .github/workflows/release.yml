@@ -39,7 +39,9 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build Fat JAR
-        run: ./mvnw clean package -DskipTests
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
         shell: bash
 
       - name: Install fakeroot (Linux only)
