@@ -64,7 +64,24 @@ jobs:
         run: |
           jpackage --type deb --name "student-progress-tracker" --app-version "${{ env.VERSION }}" --vendor "Student" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
 
-      - name: Upload Release Assets
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: mysuperproject/dist/*.*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
@@ -81,7 +98,4 @@ jobs:
             | Windows 10/11 | `*.msi` |
             | macOS 12+ | `*.dmg` |
             | Ubuntu/Debian | `*.deb` |
-          files: |
-            mysuperproject/dist/*.msi
-            mysuperproject/dist/*.dmg
-            mysuperproject/dist/*.deb
+          files: dist/*.*
