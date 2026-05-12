@@ -1,0 +1,71 @@
+name: Release Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Installer on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build Fat JAR
+        run: ./mvnw clean package -DskipTests
+        shell: bash
+
+      - name: Install fakeroot (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg-dev
+
+      - name: Build Installer (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          jpackage --type msi --name "StudentProgressTracker" --app-version "${{ env.VERSION }}" --vendor "Student" --description "Student Progress Tracking" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --win-dir-chooser --win-menu --win-shortcut
+
+      - name: Build Installer (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          jpackage --type dmg --name "StudentProgressTracker" --app-version "${{ env.VERSION }}" --vendor "Student" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/
+
+      - name: Build Installer (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          jpackage --type deb --name "student-progress-tracker" --app-version "${{ env.VERSION }}" --vendor "Student" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.msi
+            dist/*.dmg
+            dist/*.deb
+          generate_release_notes: true
