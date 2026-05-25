@@ -24,7 +24,7 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         primaryStage = stage;
-        primaryStage.setTitle("Student Progress Tracking (MVVM)");
+        primaryStage.setTitle("Smart-тренажер правопису з моніторингом прогресу");
         showLoginView();
         primaryStage.show();
     }

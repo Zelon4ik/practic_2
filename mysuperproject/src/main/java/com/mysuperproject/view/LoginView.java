@@ -88,22 +88,73 @@ public class LoginView {
     }
 
     private void showAdminLoginWindow() {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Admin Login");
-        dialog.setHeaderText("Введіть пароль адміністратора");
-        dialog.setContentText("Пароль:");
+        // 1. Згенерувати 6-значний код
+        String correctCode = String.valueOf((int) (Math.random() * 900000) + 100000);
 
-        Optional<String> result = dialog.showAndWait();
-        if (result.isPresent()) {
-            if ("1111".equals(result.get())) {
-                App.showAdminView();
-            } else {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Помилка");
-                alert.setHeaderText(null);
-                alert.setContentText("Невірний пароль адміністратора!");
-                alert.showAndWait();
-            }
-        }
+        // Повідомити користувача, що код надсилається
+        Alert sendingAlert = new Alert(Alert.AlertType.INFORMATION);
+        sendingAlert.setTitle("Вхід в адмін-панель");
+        sendingAlert.setHeaderText("Надсилання одноразового коду");
+        sendingAlert.setContentText(
+                "Надсилаємо код підтвердження на email c.povkhanych.nazarii@student.uzhnu.edu.ua...\nБудь ласка, зачекайте.");
+
+        // Відображаємо діалог без очікування (асинхронно)
+        sendingAlert.show();
+
+        // 2. Надіслати email в окремому потоці, щоб не фрізити UI
+        javafx.concurrent.Task<Void> mailTask =
+                new javafx.concurrent.Task<>() {
+                    @Override
+                    protected Void call() throws Exception {
+                        com.mysuperproject.infrastructure.email.SmtpEmailSender sender =
+                                new com.mysuperproject.infrastructure.email.SmtpEmailSender();
+                        sender.sendEmail(
+                                "c.povkhanych.nazarii@student.uzhnu.edu.ua",
+                                "Код входу адміністратора Smart-тренажера",
+                                "Привіт!\n\nВаш одноразовий код для входу в адмін-панель Smart-тренажера: "
+                                        + correctCode
+                                        + "\n\nЯкщо ви не робили цього запиту, проігноруйте цей лист.");
+                        return null;
+                    }
+                };
+
+        mailTask.setOnSucceeded(
+                e -> {
+                    sendingAlert.close();
+                    // 3. Запитати код у користувача
+                    TextInputDialog dialog = new TextInputDialog();
+                    dialog.setTitle("Вхід в адмін-панель");
+                    dialog.setHeaderText("Код підтвердження надіслано!");
+                    dialog.setContentText(
+                            "Введіть 6-значний код з email c.povkhanych.nazarii@student.uzhnu.edu.ua:");
+
+                    Optional<String> result = dialog.showAndWait();
+                    if (result.isPresent()) {
+                        if (correctCode.equals(result.get().trim())) {
+                            App.showAdminView();
+                        } else {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Помилка");
+                            alert.setHeaderText(null);
+                            alert.setContentText("Невірний код підтвердження!");
+                            alert.showAndWait();
+                        }
+                    }
+                });
+
+        mailTask.setOnFailed(
+                e -> {
+                    sendingAlert.close();
+                    Throwable ex = mailTask.getException();
+                    if (ex != null) ex.printStackTrace();
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Помилка надсилання");
+                    alert.setHeaderText(null);
+                    alert.setContentText(
+                            "Не вдалося надіслати email. Перевірте з'єднання з інтернетом або налаштування SMTP у файлі конфігурації.");
+                    alert.showAndWait();
+                });
+
+        new Thread(mailTask).start();
     }
 }

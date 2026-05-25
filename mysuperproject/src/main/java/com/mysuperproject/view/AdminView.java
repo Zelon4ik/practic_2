@@ -25,11 +25,11 @@ public class AdminView {
 
         // Header
         HBox header = new HBox(10);
-        Label title = new Label("Admin Panel - System Data");
+        Label title = new Label("Адмін-панель керування тренажером");
         title.getStyleClass().add("title-label");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button logoutBtn = new Button("Logout");
+        Button logoutBtn = new Button("Вийти");
         logoutBtn.getStyleClass().add("button-danger");
         logoutBtn.setOnAction(e -> App.showLoginView());
         header.getChildren().addAll(title, spacer, logoutBtn);
@@ -38,13 +38,13 @@ public class AdminView {
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
         // Вкладка для Subjects
-        Tab subjectTab = new Tab("Subjects", createSubjectView());
+        Tab subjectTab = new Tab("Розділи правопису", createSubjectView());
 
         // Вкладка для Users
-        Tab userTab = new Tab("Users", createUserView());
+        Tab userTab = new Tab("Користувачі", createUserView());
 
         // Вкладка для Questions
-        Tab questionTab = new Tab("Questions", createQuestionView());
+        Tab questionTab = new Tab("Завдання та тести", createQuestionView());
 
         tabPane.getTabs().addAll(subjectTab, userTab, questionTab);
 
@@ -63,9 +63,9 @@ public class AdminView {
         // Search bar
         HBox searchBox = new HBox(10);
         TextField searchField = new TextField();
-        searchField.setPromptText("Пошук предмету (фільтрація)...");
+        searchField.setPromptText("Пошук розділу (фільтрація)...");
         searchField.textProperty().bindBidirectional(subjectViewModel.searchQueryProperty());
-        searchBox.getChildren().addAll(new Label("Пошук:"), searchField);
+        searchBox.getChildren().addAll(new Label("Пошук розділу:"), searchField);
 
         // Table
         TableView<Subject> table = new TableView<>();
@@ -73,10 +73,10 @@ public class AdminView {
         TableColumn<Subject, Integer> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
 
-        TableColumn<Subject, String> nameCol = new TableColumn<>("Name");
+        TableColumn<Subject, String> nameCol = new TableColumn<>("Назва розділу");
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-        TableColumn<Subject, String> descCol = new TableColumn<>("Description");
+        TableColumn<Subject, String> descCol = new TableColumn<>("Опис розділу");
         descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
 
         table.getColumns().addAll(idCol, nameCol, descCol);
@@ -87,11 +87,11 @@ public class AdminView {
         // CRUD Form
         HBox formBox = new HBox(10);
         TextField nameField = new TextField();
-        nameField.setPromptText("Name");
+        nameField.setPromptText("Назва розділу");
         TextField descField = new TextField();
-        descField.setPromptText("Description");
+        descField.setPromptText("Опис розділу");
 
-        Button addButton = new Button("Add");
+        Button addButton = new Button("Додати");
         addButton.getStyleClass().add("button-success");
         addButton.setOnAction(
                 e -> {
@@ -100,7 +100,7 @@ public class AdminView {
                     descField.clear();
                 });
 
-        Button deleteButton = new Button("Delete");
+        Button deleteButton = new Button("Видалити");
         deleteButton.getStyleClass().add("button-danger");
         deleteButton.setOnAction(
                 e -> {
@@ -127,10 +127,10 @@ public class AdminView {
         TableColumn<User, Integer> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
 
-        TableColumn<User, String> nameCol = new TableColumn<>("Username");
+        TableColumn<User, String> nameCol = new TableColumn<>("Ім'я користувача");
         nameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
 
-        TableColumn<User, String> emailCol = new TableColumn<>("Email");
+        TableColumn<User, String> emailCol = new TableColumn<>("Електронна пошта");
         emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
 
         table.getColumns().addAll(idCol, nameCol, emailCol);
@@ -139,13 +139,13 @@ public class AdminView {
         // CRUD Form
         HBox formBox = new HBox(10);
         TextField usernameField = new TextField();
-        usernameField.setPromptText("Username");
+        usernameField.setPromptText("Ім'я користувача");
         TextField emailField = new TextField();
-        emailField.setPromptText("Email");
+        emailField.setPromptText("Електронна пошта");
         PasswordField passField = new PasswordField();
-        passField.setPromptText("Password");
+        passField.setPromptText("Пароль");
 
-        Button addButton = new Button("Add User (Register)");
+        Button addButton = new Button("Додати");
         addButton.getStyleClass().add("button-success");
         addButton.setOnAction(
                 e -> {
@@ -156,7 +156,7 @@ public class AdminView {
                     passField.clear();
                 });
 
-        Button deleteButton = new Button("Delete");
+        Button deleteButton = new Button("Видалити");
         deleteButton.getStyleClass().add("button-danger");
         deleteButton.setOnAction(
                 e -> {
@@ -179,7 +179,7 @@ public class AdminView {
 
         // ComboBox to select game
         HBox topBox = new HBox(10);
-        Label lbl = new Label("Оберіть гру:");
+        Label lbl = new Label("Оберіть вправу:");
         ComboBox<com.mysuperproject.entity.Game> gameCombo = new ComboBox<>();
         gameCombo.setItems(questionViewModel.getGames());
         // set converter to show game title
@@ -201,11 +201,11 @@ public class AdminView {
         TableColumn<com.mysuperproject.entity.Question, Integer> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
         TableColumn<com.mysuperproject.entity.Question, String> textCol =
-                new TableColumn<>("Питання");
+                new TableColumn<>("Завдання (Слово з пропуском)");
         textCol.setCellValueFactory(new PropertyValueFactory<>("questionText"));
         textCol.setPrefWidth(400);
         TableColumn<com.mysuperproject.entity.Question, String> ansCol =
-                new TableColumn<>("Відповідь");
+                new TableColumn<>("Правильна відповідь");
         ansCol.setCellValueFactory(new PropertyValueFactory<>("correctAnswer"));
         ansCol.setPrefWidth(200);
         table.getColumns().addAll(idCol, textCol, ansCol);
@@ -224,11 +224,11 @@ public class AdminView {
 
         HBox formBox = new HBox(10);
         TextField qField = new TextField();
-        qField.setPromptText("Питання");
+        qField.setPromptText("Слово з пропуском (напр., комп_ютер)");
         TextField aField = new TextField();
-        aField.setPromptText("Відповідь");
+        aField.setPromptText("Правильна відповідь (напр., комп'ютер|')");
 
-        Button addBtn = new Button("Add");
+        Button addBtn = new Button("Додати");
         addBtn.getStyleClass().add("button-success");
         addBtn.setOnAction(
                 e -> {
@@ -244,7 +244,7 @@ public class AdminView {
                     }
                 });
 
-        Button delBtn = new Button("Delete");
+        Button delBtn = new Button("Вилучити");
         delBtn.getStyleClass().add("button-danger");
         delBtn.setOnAction(
                 e -> {

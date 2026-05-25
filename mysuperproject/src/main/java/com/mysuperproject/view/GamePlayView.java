@@ -12,6 +12,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -24,6 +27,7 @@ public class GamePlayView {
 
     private final List<TextField> answerFields = new ArrayList<>();
     private final List<String> correctAnswers = new ArrayList<>();
+    private final List<com.mysuperproject.entity.Question> playedQuestions = new ArrayList<>();
 
     public GamePlayView(User user, int gameId, String gameTitle) {
         this.user = user;
@@ -63,16 +67,26 @@ public class GamePlayView {
     }
 
     private void setupQuestions(VBox content) {
-        List<com.mysuperproject.entity.Question> questions =
-                gameService.getQuestionsForGame(gameId);
+        List<com.mysuperproject.entity.Question> questions;
+        if (gameId == -1) {
+            questions = gameService.getUserMistakeQuestions(user);
+        } else {
+            questions = gameService.getQuestionsForGame(gameId);
+        }
+
         if (questions.isEmpty()) {
-            Label noQ = new Label("Немає завдань для цієї гри.");
+            Label noQ =
+                    new Label(
+                            gameId == -1
+                                    ? "У вас немає невиправлених помилок! Чудова робота!"
+                                    : "Немає завдань для цієї гри.");
             noQ.getStyleClass().add("subtitle-label");
             content.getChildren().add(noQ);
             return;
         }
 
         for (com.mysuperproject.entity.Question q : questions) {
+            playedQuestions.add(q);
             addQuestion(content, q.getQuestionText(), q.getCorrectAnswer());
         }
     }
@@ -86,7 +100,49 @@ public class GamePlayView {
         answerFields.add(aField);
         correctAnswers.add(correctAnswer);
 
-        content.getChildren().addAll(qLabel, aField);
+        String[] choices = parseChoices(questionText);
+        if (choices != null) {
+            aField.setVisible(false);
+            aField.setManaged(false);
+
+            HBox choicesBox = new HBox(10);
+            choicesBox.setPadding(new Insets(5, 0, 5, 0));
+            ToggleGroup group = new ToggleGroup();
+
+            for (String choice : choices) {
+                choice = choice.trim();
+                ToggleButton btn = new ToggleButton(choice);
+                btn.setToggleGroup(group);
+                btn.getStyleClass().add("toggle-button");
+
+                String finalChoice = choice;
+                btn.setOnAction(
+                        e -> {
+                            if (btn.isSelected()) {
+                                aField.setText(finalChoice);
+                            } else {
+                                aField.setText("");
+                            }
+                        });
+                choicesBox.getChildren().add(btn);
+            }
+            content.getChildren().addAll(qLabel, choicesBox, aField);
+        } else {
+            content.getChildren().addAll(qLabel, aField);
+        }
+    }
+
+    private String[] parseChoices(String questionText) {
+        if (questionText == null) return null;
+        int openBracket = questionText.lastIndexOf("(");
+        int closeBracket = questionText.lastIndexOf(")");
+        if (openBracket != -1 && closeBracket != -1 && openBracket < closeBracket) {
+            String inner = questionText.substring(openBracket + 1, closeBracket);
+            if (inner.contains(" чи ")) {
+                return inner.split(" чи ");
+            }
+        }
+        return null;
     }
 
     private void checkAnswersAndSave() {
@@ -94,14 +150,26 @@ public class GamePlayView {
         int totalQuestions = correctAnswers.size();
 
         for (int i = 0; i < totalQuestions; i++) {
-            String userAnswer = answerFields.get(i).getText().trim().toLowerCase();
-            String expectedAnswer = correctAnswers.get(i).toLowerCase();
+            String userAnswer = answerFields.get(i).getText();
+            String expectedAnswer = correctAnswers.get(i);
+            com.mysuperproject.entity.Question q = playedQuestions.get(i);
 
-            // Спрощена перевірка
-            if (userAnswer.equals(expectedAnswer)
-                    || (userAnswer.equals("1/2") && expectedAnswer.equals("2/4"))) {
+            if (isAnswerCorrect(userAnswer, expectedAnswer)) {
                 correctCount++;
+                gameService.resolveMistake(user.getId(), q.getId());
+            } else {
+                gameService.recordMistake(user.getId(), q.getId());
             }
+        }
+
+        if (gameId == -1) {
+            String resultText =
+                    String.format(
+                            "Роботу над помилками завершено!\nПравильно відповідей: %d з %d.\nВиправлено помилок: %d.",
+                            correctCount, totalQuestions, correctCount);
+            showAlert(Alert.AlertType.INFORMATION, "Результат", resultText);
+            ((Stage) root.getScene().getWindow()).close();
+            return;
         }
 
         Game game = gameService.getGameById(gameId);
@@ -129,6 +197,28 @@ public class GamePlayView {
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Помилка збереження", e.getMessage());
         }
+    }
+
+    private boolean isAnswerCorrect(String userAnswer, String expectedAnswer) {
+        userAnswer = normalizeAnswer(userAnswer);
+        expectedAnswer = normalizeAnswer(expectedAnswer);
+
+        if (expectedAnswer.contains("|")) {
+            String[] parts = expectedAnswer.split("\\|");
+            for (String part : parts) {
+                if (userAnswer.equals(part.trim())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return userAnswer.equals(expectedAnswer);
+    }
+
+    private String normalizeAnswer(String text) {
+        if (text == null) return "";
+        return text.trim().toLowerCase().replace("`", "'").replace("’", "'");
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {

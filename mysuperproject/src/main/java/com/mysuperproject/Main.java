@@ -32,7 +32,8 @@ public class Main {
     public static void main(String[] args) {
         initDatabase();
 
-        System.out.println("Вітаємо у застосунку 'Student Progress Tracking'!");
+        System.out.println(
+                "Вітаємо у застосунку 'Smart-тренажер правопису з системою моніторингу прогресу'!");
 
         boolean running = true;
         while (running) {
@@ -116,8 +117,8 @@ public class Main {
 
     private static void showUserMenu() {
         System.out.println("\n--- Меню Студента (" + currentUser.getUsername() + ") ---");
-        System.out.println("1. Зіграти в гру 'Математика: Дроби'");
-        System.out.println("2. Зіграти в гру 'Історія України'");
+        System.out.println("1. Тренування: Апостроф у питомих українських словах");
+        System.out.println("2. Тренування: Апостроф у словах іншомовного походження");
         System.out.println("3. Переглянути свою статистику та досягнення");
         System.out.println("4. Вийти з акаунту");
         System.out.print("Оберіть опцію: ");
@@ -125,10 +126,10 @@ public class Main {
         String choice = scanner.nextLine();
         switch (choice) {
             case "1":
-                playMathGame();
+                playSpellingGame(1);
                 break;
             case "2":
-                playHistoryGame();
+                playSpellingGame(2);
                 break;
             case "3":
                 showStats();
@@ -142,72 +143,87 @@ public class Main {
         }
     }
 
-    private static void playMathGame() {
-        // ID гри 'Знайди спільний знаменник' = 1 (див. V2__Seed_data.sql)
-        Game game = gameService.getGameById(1);
+    private static void playSpellingGame(int gameId) {
+        Game game = gameService.getGameById(gameId);
         if (game == null) {
-            System.out.println("Гру не знайдено в базі!");
+            System.out.println("Вправу не знайдено в базі!");
             return;
         }
 
-        System.out.println("\nГра: " + game.getTitle());
-        System.out.println("Питання: Чому дорівнює 1/2 + 1/2? (Введіть число)");
-        System.out.print("Ваша відповідь: ");
-        String answer = scanner.nextLine();
-
-        int score = 0;
-        int mistakes = 1;
-        if ("1".equals(answer.trim())) {
-            System.out.println("Правильно!");
-            score = game.getMaxScore(); // 100 балів
-            mistakes = 0;
-        } else {
-            System.out.println("Неправильно. Правильна відповідь: 1");
+        System.out.println("\n--- Вправа: " + game.getTitle() + " ---");
+        List<com.mysuperproject.entity.Question> questions =
+                gameService.getQuestionsForGame(gameId);
+        if (questions.isEmpty()) {
+            System.out.println("Помилка: Завдання для цієї вправи відсутні в базі!");
+            return;
         }
 
+        int correctCount = 0;
+        int totalQuestions = questions.size();
+
+        for (int i = 0; i < totalQuestions; i++) {
+            com.mysuperproject.entity.Question q = questions.get(i);
+            System.out.println("\nЗавдання " + (i + 1) + " з " + totalQuestions + ":");
+            System.out.println(q.getQuestionText());
+            System.out.print("Ваша відповідь (слово повністю або пропущений символ): ");
+            String answer = scanner.nextLine().trim();
+
+            if (isAnswerCorrect(answer, q.getCorrectAnswer())) {
+                System.out.println("Правильно! (+)");
+                correctCount++;
+            } else {
+                String displayCorrect = q.getCorrectAnswer();
+                if (displayCorrect.contains("|")) {
+                    displayCorrect = displayCorrect.split("\\|")[0];
+                }
+                System.out.println("Неправильно. Правильна відповідь: " + displayCorrect);
+            }
+        }
+
+        int score = (int) Math.round((double) correctCount / totalQuestions * game.getMaxScore());
+        int mistakes = totalQuestions - correctCount;
+
         gameService.playGame(currentUser, game, score, mistakes);
-        System.out.println("Результат збережено!");
+        System.out.println("\nРезультати вправи збережено!");
+        System.out.printf(
+                "Ваш бал: %d / %d. Кількість помилок: %d.%n", score, game.getMaxScore(), mistakes);
     }
 
-    private static void playHistoryGame() {
-        // ID гри 'Хронологія: УНР' = 3 (див. V2__Seed_data.sql)
-        Game game = gameService.getGameById(3);
-        if (game == null) {
-            System.out.println("Гру не знайдено в базі!");
-            return;
+    private static boolean isAnswerCorrect(String userAnswer, String expectedAnswer) {
+        userAnswer = normalizeAnswer(userAnswer);
+        expectedAnswer = normalizeAnswer(expectedAnswer);
+
+        if (expectedAnswer.contains("|")) {
+            String[] parts = expectedAnswer.split("\\|");
+            for (String part : parts) {
+                if (userAnswer.equals(part.trim())) {
+                    return true;
+                }
+            }
+            return false;
         }
 
-        System.out.println("\nГра: " + game.getTitle());
-        System.out.println(
-                "Питання: В якому році була проголошена незалежність УНР? (Введіть рік)");
-        System.out.print("Ваша відповідь: ");
-        String answer = scanner.nextLine();
+        return userAnswer.equals(expectedAnswer);
+    }
 
-        int score = 0;
-        int mistakes = 1;
-        if ("1918".equals(answer.trim())) {
-            System.out.println("Правильно!");
-            score = game.getMaxScore(); // 100 балів
-            mistakes = 0;
-        } else {
-            System.out.println("Неправильно. Правильна відповідь: 1918");
-        }
-
-        gameService.playGame(currentUser, game, score, mistakes);
-        System.out.println("Результат збережено!");
+    private static String normalizeAnswer(String text) {
+        if (text == null) return "";
+        return text.trim().toLowerCase().replace("`", "'").replace("’", "'");
     }
 
     private static void showStats() {
-        System.out.println("\n--- Ваша статистика ---");
+        System.out.println("\n--- Ваша статистика тренувань ---");
         List<GameSession> sessions = gameService.getUserSessions(currentUser);
         if (sessions.isEmpty()) {
-            System.out.println("Ви ще не зіграли жодної гри.");
+            System.out.println("Ви ще не виконали жодної вправи.");
         } else {
-            System.out.println("Ігрові сесії:");
+            System.out.println("Сесії тренувань:");
             for (GameSession s : sessions) {
+                Game g = gameService.getGameById(s.getGameId());
+                String gameTitle = (g != null) ? g.getTitle() : "Невідома вправа";
                 System.out.printf(
-                        "- Гра ID: %d | Бали: %d | Помилки: %d | Дата: %s%n",
-                        s.getGameId(), s.getScore(), s.getMistakesCount(), s.getCompletedAt());
+                        "- Вправа: %s | Бали: %d | Помилки: %d | Дата: %s%n",
+                        gameTitle, s.getScore(), s.getMistakesCount(), s.getCompletedAt());
             }
         }
 

@@ -52,19 +52,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          jpackage --type msi --name "StudentProgressTracker" --app-version "${{ env.VERSION }}" --vendor "Student" --description "Student Progress Tracking" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --win-dir-chooser --win-menu --win-shortcut
+          jpackage --type msi --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --description "Розумний тренажер правопису з моніторингом прогресу" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --win-dir-chooser --win-menu --win-shortcut
 
       - name: Build Installer (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          jpackage --type dmg --name "StudentProgressTracker" --app-version "${{ env.VERSION }}" --vendor "Student" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/
+          jpackage --type dmg --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/
 
       - name: Build Installer (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          jpackage --type deb --name "student-progress-tracker" --app-version "${{ env.VERSION }}" --vendor "Student" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
+          jpackage --type deb --name "smart-spelling-trainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -87,11 +87,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: Student Progress Tracking Release ${{ github.ref_name }}
+          name: Smart Spelling Trainer Release ${{ github.ref_name }}
           body: |
             ## Зміни у версії ${{ github.ref_name }}
             
-            Фінальна версія системи для моніторингу успішності студентів.
+            Фінальна версія розумного тренажера правопису з системою моніторингу прогресу.
             
             ### Завантаження інсталяторів:
             
