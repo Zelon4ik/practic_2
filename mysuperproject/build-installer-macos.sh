@@ -12,6 +12,7 @@ jpackage \
   --name "SmartSpellingTrainer" \
   --app-version "1.0.0" \
   --vendor "Nazarii Povkhanych" \
+  --icon src/main/resources/icon.icns \
   --input target/ \
   --main-jar mysuperproject-fat.jar \
   --main-class com.mysuperproject.Launcher \

@@ -52,19 +52,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          jpackage --type msi --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --description "Розумний тренажер правопису з моніторингом прогресу" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --win-dir-chooser --win-menu --win-shortcut
+          jpackage --type msi --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --description "Розумний тренажер правопису з моніторингом прогресу" --icon src/main/resources/icon.ico --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --win-dir-chooser --win-menu --win-shortcut
 
       - name: Build Installer (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          jpackage --type dmg --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/
+          jpackage --type dmg --name "SmartSpellingTrainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --icon src/main/resources/icon.icns --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/
 
       - name: Build Installer (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          jpackage --type deb --name "smart-spelling-trainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
+          jpackage --type deb --name "smart-spelling-trainer" --app-version "${{ env.VERSION }}" --vendor "Nazarii Povkhanych" --icon src/main/resources/icon.png --input target/ --main-jar mysuperproject-fat.jar --main-class com.mysuperproject.Launcher --dest dist/ --linux-shortcut
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
