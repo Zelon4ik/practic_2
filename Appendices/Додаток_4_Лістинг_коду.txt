@@ -1,52 +1,29 @@
-Column.java
+Achievement.java
 --------------------------------------------------
-package com.mysuperproject.annotation;
+package com.mysuperproject.entity;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
-public @interface Column {
-    String name();
-}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "achievements")
+public class Achievement {
+    @Id(name = "id")
+    private Integer id;
 
+    @Column(name = "name")
+    private String name;
 
-
-Id.java
---------------------------------------------------
-package com.mysuperproject.annotation;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
-public @interface Id {
-    String name() default "id";
-
-    boolean autoIncrement() default true;
-}
-
-
-
-Table.java
---------------------------------------------------
-package com.mysuperproject.annotation;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface Table {
-    String name();
+    @Column(name = "requirement_desc")
+    private String requirementDesc;
 }
 
 
@@ -94,6 +71,550 @@ public class AchievementDao extends GenericDao<Achievement, Integer> {
 
 
 
+AchievementService.java
+--------------------------------------------------
+package com.mysuperproject.service;
+
+import com.mysuperproject.dao.AchievementDao;
+import com.mysuperproject.entity.Achievement;
+import java.util.List;
+import java.util.Optional;
+
+public class AchievementService {
+    private final AchievementDao achievementDao = new AchievementDao();
+
+    public Achievement createAchievement(String name, String requirementDesc) {
+        if (name == null
+                || name.isEmpty()
+                || requirementDesc == null
+                || requirementDesc.isEmpty()) {
+            throw new IllegalArgumentException("Дані досягнення не можуть бути порожніми");
+        }
+        Achievement achievement = new Achievement();
+        achievement.setName(name);
+        achievement.setRequirementDesc(requirementDesc);
+        return achievementDao.save(achievement);
+    }
+
+    public Optional<Achievement> getAchievementById(int id) {
+        return achievementDao.findById(id);
+    }
+
+    public List<Achievement> getAllAchievements() {
+        return achievementDao.findAll();
+    }
+
+    public void updateAchievement(Achievement achievement) {
+        if (achievement == null || achievement.getId() == null) {
+            throw new IllegalArgumentException("Некоректні дані досягнення для оновлення");
+        }
+        achievementDao.update(achievement);
+    }
+
+    public void deleteAchievement(int id) {
+        achievementDao.delete(id);
+    }
+}
+
+
+
+AdminView.java
+--------------------------------------------------
+package com.mysuperproject.view;
+
+import com.mysuperproject.App;
+import com.mysuperproject.entity.Subject;
+import com.mysuperproject.entity.User;
+import com.mysuperproject.viewmodel.SubjectViewModel;
+import com.mysuperproject.viewmodel.UserViewModel;
+import javafx.geometry.Insets;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.*;
+
+public class AdminView {
+    private final VBox root;
+
+    private final SubjectViewModel subjectViewModel = new SubjectViewModel();
+    private final UserViewModel userViewModel = new UserViewModel();
+    private final com.mysuperproject.viewmodel.QuestionViewModel questionViewModel =
+            new com.mysuperproject.viewmodel.QuestionViewModel();
+
+    public AdminView() {
+        root = new VBox();
+        root.setSpacing(10);
+        root.setPadding(new Insets(10));
+
+        // Header
+        HBox header = new HBox(10);
+        Label title = new Label("Адмін-панель керування тренажером");
+        title.getStyleClass().add("title-label");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button logoutBtn = new Button("Вийти");
+        logoutBtn.getStyleClass().add("button-danger");
+        logoutBtn.setOnAction(e -> App.showLoginView());
+        header.getChildren().addAll(title, spacer, logoutBtn);
+
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        // Вкладка для Subjects
+        Tab subjectTab = new Tab("Розділи правопису", createSubjectView());
+
+        // Вкладка для Users
+        Tab userTab = new Tab("Користувачі", createUserView());
+
+        // Вкладка для Questions
+        Tab questionTab = new Tab("Завдання та тести", createQuestionView());
+
+        tabPane.getTabs().addAll(subjectTab, userTab, questionTab);
+
+        VBox.setVgrow(tabPane, Priority.ALWAYS);
+        root.getChildren().addAll(header, tabPane);
+    }
+
+    public VBox getView() {
+        return root;
+    }
+
+    private VBox createSubjectView() {
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+
+        // Search bar
+        HBox searchBox = new HBox(10);
+        TextField searchField = new TextField();
+        searchField.setPromptText("Пошук розділу (фільтрація)...");
+        searchField.textProperty().bindBidirectional(subjectViewModel.searchQueryProperty());
+        searchBox.getChildren().addAll(new Label("Пошук розділу:"), searchField);
+
+        // Table
+        TableView<Subject> table = new TableView<>();
+
+        TableColumn<Subject, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+
+        TableColumn<Subject, String> nameCol = new TableColumn<>("Назва розділу");
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        TableColumn<Subject, String> descCol = new TableColumn<>("Опис розділу");
+        descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
+
+        table.getColumns().addAll(idCol, nameCol, descCol);
+
+        // Bind table items to filtered list
+        table.setItems(subjectViewModel.getFilteredSubjects());
+
+        // CRUD Form
+        HBox formBox = new HBox(10);
+        TextField nameField = new TextField();
+        nameField.setPromptText("Назва розділу");
+        TextField descField = new TextField();
+        descField.setPromptText("Опис розділу");
+
+        Button addButton = new Button("Додати");
+        addButton.getStyleClass().add("button-success");
+        addButton.setOnAction(
+                e -> {
+                    subjectViewModel.addSubject(nameField.getText(), descField.getText());
+                    nameField.clear();
+                    descField.clear();
+                });
+
+        Button deleteButton = new Button("Видалити");
+        deleteButton.getStyleClass().add("button-danger");
+        deleteButton.setOnAction(
+                e -> {
+                    Subject selected = table.getSelectionModel().getSelectedItem();
+                    if (selected != null) {
+                        subjectViewModel.deleteSubject(selected);
+                    }
+                });
+
+        formBox.getChildren().addAll(nameField, descField, addButton, deleteButton);
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        vbox.getChildren().addAll(searchBox, table, formBox);
+        return vbox;
+    }
+
+    private VBox createUserView() {
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+
+        // Table
+        TableView<User> table = new TableView<>();
+
+        TableColumn<User, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+
+        TableColumn<User, String> nameCol = new TableColumn<>("Ім'я користувача");
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
+
+        TableColumn<User, String> emailCol = new TableColumn<>("Електронна пошта");
+        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
+
+        table.getColumns().addAll(idCol, nameCol, emailCol);
+        table.setItems(userViewModel.getUsers());
+
+        // CRUD Form
+        HBox formBox = new HBox(10);
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Ім'я користувача");
+        TextField emailField = new TextField();
+        emailField.setPromptText("Електронна пошта");
+        PasswordField passField = new PasswordField();
+        passField.setPromptText("Пароль");
+
+        Button addButton = new Button("Додати");
+        addButton.getStyleClass().add("button-success");
+        addButton.setOnAction(
+                e -> {
+                    userViewModel.confirmAndAddUser(
+                            usernameField.getText(), emailField.getText(), passField.getText());
+                    usernameField.clear();
+                    emailField.clear();
+                    passField.clear();
+                });
+
+        Button deleteButton = new Button("Видалити");
+        deleteButton.getStyleClass().add("button-danger");
+        deleteButton.setOnAction(
+                e -> {
+                    User selected = table.getSelectionModel().getSelectedItem();
+                    if (selected != null) {
+                        userViewModel.deleteUser(selected);
+                    }
+                });
+
+        formBox.getChildren().addAll(usernameField, emailField, passField, addButton, deleteButton);
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        vbox.getChildren().addAll(table, formBox);
+        return vbox;
+    }
+
+    private VBox createQuestionView() {
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+
+        // ComboBox to select game
+        HBox topBox = new HBox(10);
+        Label lbl = new Label("Оберіть вправу:");
+        ComboBox<com.mysuperproject.entity.Game> gameCombo = new ComboBox<>();
+        gameCombo.setItems(questionViewModel.getGames());
+        // set converter to show game title
+        gameCombo.setConverter(
+                new javafx.util.StringConverter<>() {
+                    @Override
+                    public String toString(com.mysuperproject.entity.Game object) {
+                        return object == null ? "" : object.getTitle();
+                    }
+
+                    @Override
+                    public com.mysuperproject.entity.Game fromString(String string) {
+                        return null;
+                    }
+                });
+        topBox.getChildren().addAll(lbl, gameCombo);
+
+        TableView<com.mysuperproject.entity.Question> table = new TableView<>();
+        TableColumn<com.mysuperproject.entity.Question, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        TableColumn<com.mysuperproject.entity.Question, String> textCol =
+                new TableColumn<>("Завдання (Слово з пропуском)");
+        textCol.setCellValueFactory(new PropertyValueFactory<>("questionText"));
+        textCol.setPrefWidth(400);
+        TableColumn<com.mysuperproject.entity.Question, String> ansCol =
+                new TableColumn<>("Правильна відповідь");
+        ansCol.setCellValueFactory(new PropertyValueFactory<>("correctAnswer"));
+        ansCol.setPrefWidth(200);
+        table.getColumns().addAll(idCol, textCol, ansCol);
+
+        table.setItems(questionViewModel.getQuestions());
+
+        gameCombo
+                .getSelectionModel()
+                .selectedItemProperty()
+                .addListener(
+                        (obs, oldVal, newVal) -> {
+                            if (newVal != null) {
+                                questionViewModel.loadQuestionsForGame(newVal.getId());
+                            }
+                        });
+
+        HBox formBox = new HBox(10);
+        TextField qField = new TextField();
+        qField.setPromptText("Слово з пропуском (напр., комп_ютер)");
+        TextField aField = new TextField();
+        aField.setPromptText("Правильна відповідь (напр., комп'ютер|')");
+
+        Button addBtn = new Button("Додати");
+        addBtn.getStyleClass().add("button-success");
+        addBtn.setOnAction(
+                e -> {
+                    com.mysuperproject.entity.Game selectedGame =
+                            gameCombo.getSelectionModel().getSelectedItem();
+                    if (selectedGame != null
+                            && !qField.getText().isEmpty()
+                            && !aField.getText().isEmpty()) {
+                        questionViewModel.addQuestion(
+                                selectedGame.getId(), qField.getText(), aField.getText());
+                        qField.clear();
+                        aField.clear();
+                    }
+                });
+
+        Button delBtn = new Button("Вилучити");
+        delBtn.getStyleClass().add("button-danger");
+        delBtn.setOnAction(
+                e -> {
+                    com.mysuperproject.entity.Question selected =
+                            table.getSelectionModel().getSelectedItem();
+                    if (selected != null) {
+                        questionViewModel.deleteQuestion(selected);
+                    }
+                });
+
+        formBox.getChildren().addAll(qField, aField, addBtn, delBtn);
+
+        VBox.setVgrow(table, Priority.ALWAYS);
+        vbox.getChildren().addAll(topBox, table, formBox);
+        return vbox;
+    }
+}
+
+
+
+App.java
+--------------------------------------------------
+package com.mysuperproject;
+
+import com.mysuperproject.entity.User;
+import com.mysuperproject.util.ConnectionPool;
+import com.mysuperproject.util.PropertiesUtil;
+import com.mysuperproject.view.AdminView;
+import com.mysuperproject.view.LoginView;
+import com.mysuperproject.view.StudentDashboardView;
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import org.flywaydb.core.Flyway;
+
+public class App extends Application {
+
+    private static Stage primaryStage;
+
+    @Override
+    public void init() throws Exception {
+        super.init();
+        initDatabase();
+    }
+
+    @Override
+    public void start(Stage stage) {
+        primaryStage = stage;
+        primaryStage.setTitle("Smart-тренажер правопису з моніторингом прогресу");
+        try {
+            primaryStage
+                    .getIcons()
+                    .add(new javafx.scene.image.Image(App.class.getResourceAsStream("/icon.png")));
+        } catch (Exception e) {
+            System.err.println("Could not load application icon: " + e.getMessage());
+        }
+        showLoginView();
+        primaryStage.show();
+    }
+
+    public static void showLoginView() {
+        LoginView loginView = new LoginView();
+        Scene scene = new Scene(loginView.getView(), 400, 300);
+        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
+        primaryStage.setScene(scene);
+    }
+
+    public static void showAdminView() {
+        AdminView adminView = new AdminView();
+        Scene scene = new Scene(adminView.getView(), 800, 600);
+        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
+        primaryStage.setScene(scene);
+    }
+
+    public static void showStudentDashboard(User user) {
+        StudentDashboardView dashboardView = new StudentDashboardView(user);
+        Scene scene = new Scene(dashboardView.getView(), 800, 600);
+        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
+        primaryStage.setScene(scene);
+    }
+
+    @Override
+    public void stop() throws Exception {
+        ConnectionPool.closePool();
+        super.stop();
+    }
+
+    private void initDatabase() {
+        System.out.println("Ініціалізація бази даних...");
+        Flyway flyway =
+                Flyway.configure()
+                        .dataSource(
+                                PropertiesUtil.get("db.url"),
+                                PropertiesUtil.get("db.username"),
+                                PropertiesUtil.get("db.password"))
+                        .load();
+        flyway.migrate();
+        System.out.println("База даних готова до роботи!\n");
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
+
+
+
+BcryptPasswordHasher.java
+--------------------------------------------------
+package com.mysuperproject.infrastructure.security;
+
+import com.mysuperproject.service.port.PasswordHasher;
+import org.mindrot.jbcrypt.BCrypt;
+
+public class BcryptPasswordHasher implements PasswordHasher {
+
+    @Override
+    public String hash(String rawPassword) {
+        if (rawPassword == null || rawPassword.isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be empty");
+        }
+        return BCrypt.hashpw(rawPassword, BCrypt.gensalt(12));
+    }
+
+    @Override
+    public boolean verify(String rawPassword, String hashedPassword) {
+        if (rawPassword == null || hashedPassword == null) {
+            return false;
+        }
+        try {
+            return BCrypt.checkpw(rawPassword, hashedPassword);
+        } catch (IllegalArgumentException e) {
+            // Can happen if hashedPassword is not a valid BCrypt hash
+            return false;
+        }
+    }
+}
+
+
+
+Column.java
+--------------------------------------------------
+package com.mysuperproject.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface Column {
+    String name();
+}
+
+
+
+ConnectionPool.java
+--------------------------------------------------
+package com.mysuperproject.util;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public final class ConnectionPool {
+
+    private static final String URL_KEY = "db.url";
+    private static final String USERNAME_KEY = "db.username";
+    private static final String PASSWORD_KEY = "db.password";
+    private static final String POOL_SIZE_KEY = "db.pool.size";
+    private static final int DEFAULT_POOL_SIZE = 10;
+
+    private static BlockingQueue<Connection> pool;
+    private static List<Connection> sourceConnections;
+
+    static {
+        initConnectionPool();
+    }
+
+    private ConnectionPool() {}
+
+    private static void initConnectionPool() {
+        String poolSizeStr = PropertiesUtil.get(POOL_SIZE_KEY);
+        int poolSize = poolSizeStr != null ? Integer.parseInt(poolSizeStr) : DEFAULT_POOL_SIZE;
+        pool = new ArrayBlockingQueue<>(poolSize);
+        sourceConnections = new ArrayList<>(poolSize);
+
+        for (int i = 0; i < poolSize; i++) {
+            Connection connection = open();
+            // Wrap the connection with proxy to prevent actual closing when close() is called
+            // Instead, we could return it to the pool.
+            // For simplicity in this assignment, we'll just use a Proxy.
+            var proxyConnection =
+                    (Connection)
+                            java.lang.reflect.Proxy.newProxyInstance(
+                                    ConnectionPool.class.getClassLoader(),
+                                    new Class[] {Connection.class},
+                                    (proxy, method, args) -> {
+                                        if ("close".equals(method.getName())) {
+                                            pool.put((Connection) proxy);
+                                            return null;
+                                        } else {
+                                            return method.invoke(connection, args);
+                                        }
+                                    });
+            pool.add(proxyConnection);
+            sourceConnections.add(connection);
+        }
+    }
+
+    public static Connection get() {
+        try {
+            return pool.take();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error getting connection from pool", e);
+        }
+    }
+
+    private static Connection open() {
+        try {
+            return DriverManager.getConnection(
+                    PropertiesUtil.get(URL_KEY),
+                    PropertiesUtil.get(USERNAME_KEY),
+                    PropertiesUtil.get(PASSWORD_KEY));
+        } catch (SQLException e) {
+            throw new RuntimeException("Error opening connection", e);
+        }
+    }
+
+    public static void closePool() {
+        for (Connection connection : sourceConnections) {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                throw new RuntimeException("Error closing pool connections", e);
+            }
+        }
+    }
+}
+
+
+
 Dao.java
 --------------------------------------------------
 package com.mysuperproject.dao;
@@ -115,6 +636,49 @@ public interface Dao<T, K> {
 
 
 
+EmailSender.java
+--------------------------------------------------
+package com.mysuperproject.service.port;
+
+public interface EmailSender {
+    void sendEmail(String to, String subject, String text);
+}
+
+
+
+Game.java
+--------------------------------------------------
+package com.mysuperproject.entity;
+
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "games")
+public class Game {
+    @Id(name = "id")
+    private Integer id;
+
+    @Column(name = "subject_id")
+    private Integer subjectId;
+
+    @Column(name = "title")
+    private String title;
+
+    @Column(name = "max_score")
+    private Integer maxScore;
+}
+
+
+
 GameDao.java
 --------------------------------------------------
 package com.mysuperproject.dao;
@@ -125,6 +689,447 @@ public class GameDao extends GenericDao<Game, Integer> {
     public GameDao() {
         super(Game.class);
     }
+}
+
+
+
+GamePlayView.java
+--------------------------------------------------
+package com.mysuperproject.view;
+
+import com.mysuperproject.entity.Game;
+import com.mysuperproject.entity.User;
+import com.mysuperproject.service.GameService;
+import java.util.ArrayList;
+import java.util.List;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+public class GamePlayView {
+
+    private final ScrollPane root;
+    private final GameService gameService = new GameService();
+    private final User user;
+    private final int gameId;
+
+    private final List<TextField> answerFields = new ArrayList<>();
+    private final List<String> correctAnswers = new ArrayList<>();
+    private final List<com.mysuperproject.entity.Question> playedQuestions = new ArrayList<>();
+
+    public GamePlayView(User user, int gameId, String gameTitle) {
+        this.user = user;
+        this.gameId = gameId;
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.TOP_LEFT);
+
+        Label titleLabel = new Label(gameTitle);
+        titleLabel.getStyleClass().add("title-label");
+        content.getChildren().add(titleLabel);
+
+        Label scoreLabel =
+                new Label("Бали: 0"); // Just a placeholder, as it's not dynamically updated here
+        // during play anyway
+        scoreLabel.getStyleClass().add("subtitle-label");
+        Label mistakesLabel = new Label("Помилки: 0");
+        mistakesLabel.getStyleClass().add("subtitle-label");
+        mistakesLabel.setStyle("-fx-text-fill: #E74C3C;");
+        content.getChildren().addAll(scoreLabel, mistakesLabel);
+
+        setupQuestions(content);
+
+        Button submitBtn = new Button("Завершити та Перевірити");
+        submitBtn.getStyleClass().add("button-primary");
+        submitBtn.setOnAction(e -> checkAnswersAndSave());
+
+        content.getChildren().add(submitBtn);
+
+        root = new ScrollPane(content);
+        root.setFitToWidth(true);
+    }
+
+    public ScrollPane getView() {
+        return root;
+    }
+
+    private void setupQuestions(VBox content) {
+        List<com.mysuperproject.entity.Question> questions;
+        if (gameId == -1) {
+            questions = gameService.getUserMistakeQuestions(user);
+        } else {
+            questions = gameService.getQuestionsForGame(gameId);
+        }
+
+        if (questions.isEmpty()) {
+            Label noQ =
+                    new Label(
+                            gameId == -1
+                                    ? "У вас немає невиправлених помилок! Чудова робота!"
+                                    : "Немає завдань для цієї гри.");
+            noQ.getStyleClass().add("subtitle-label");
+            content.getChildren().add(noQ);
+            return;
+        }
+
+        for (com.mysuperproject.entity.Question q : questions) {
+            playedQuestions.add(q);
+            addQuestion(content, q.getQuestionText(), q.getCorrectAnswer());
+        }
+    }
+
+    private void addQuestion(VBox content, String questionText, String correctAnswer) {
+        Label qLabel = new Label(questionText);
+        qLabel.getStyleClass().add("subtitle-label");
+        TextField aField = new TextField();
+        aField.setPromptText("Ваша відповідь...");
+
+        answerFields.add(aField);
+        correctAnswers.add(correctAnswer);
+
+        String[] choices = parseChoices(questionText);
+        if (choices != null) {
+            aField.setVisible(false);
+            aField.setManaged(false);
+
+            HBox choicesBox = new HBox(10);
+            choicesBox.setPadding(new Insets(5, 0, 5, 0));
+            ToggleGroup group = new ToggleGroup();
+
+            for (String choice : choices) {
+                choice = choice.trim();
+                ToggleButton btn = new ToggleButton(choice);
+                btn.setToggleGroup(group);
+                btn.getStyleClass().add("toggle-button");
+
+                String finalChoice = choice;
+                btn.setOnAction(
+                        e -> {
+                            if (btn.isSelected()) {
+                                aField.setText(finalChoice);
+                            } else {
+                                aField.setText("");
+                            }
+                        });
+                choicesBox.getChildren().add(btn);
+            }
+            content.getChildren().addAll(qLabel, choicesBox, aField);
+        } else {
+            content.getChildren().addAll(qLabel, aField);
+        }
+    }
+
+    private String[] parseChoices(String questionText) {
+        if (questionText == null) return null;
+        int openBracket = questionText.lastIndexOf("(");
+        int closeBracket = questionText.lastIndexOf(")");
+        if (openBracket != -1 && closeBracket != -1 && openBracket < closeBracket) {
+            String inner = questionText.substring(openBracket + 1, closeBracket);
+            if (inner.contains(" чи ")) {
+                return inner.split(" чи ");
+            }
+        }
+        return null;
+    }
+
+    private void checkAnswersAndSave() {
+        int correctCount = 0;
+        int totalQuestions = correctAnswers.size();
+
+        for (int i = 0; i < totalQuestions; i++) {
+            String userAnswer = answerFields.get(i).getText();
+            String expectedAnswer = correctAnswers.get(i);
+            com.mysuperproject.entity.Question q = playedQuestions.get(i);
+
+            if (isAnswerCorrect(userAnswer, expectedAnswer)) {
+                correctCount++;
+                gameService.resolveMistake(user.getId(), q.getId());
+            } else {
+                gameService.recordMistake(user.getId(), q.getId());
+            }
+        }
+
+        if (gameId == -1) {
+            String resultText =
+                    String.format(
+                            "Роботу над помилками завершено!\nПравильно відповідей: %d з %d.\nВиправлено помилок: %d.",
+                            correctCount, totalQuestions, correctCount);
+            showAlert(Alert.AlertType.INFORMATION, "Результат", resultText);
+            ((Stage) root.getScene().getWindow()).close();
+            return;
+        }
+
+        Game game = gameService.getGameById(gameId);
+        if (game == null) {
+            showAlert(Alert.AlertType.ERROR, "Помилка", "Гру не знайдено в базі даних!");
+            return;
+        }
+
+        int score = (int) Math.round((double) correctCount / totalQuestions * game.getMaxScore());
+        int mistakes = totalQuestions - correctCount;
+
+        try {
+            gameService.playGame(user, game, score, mistakes);
+
+            String resultText =
+                    String.format(
+                            "Ви відповіли правильно на %d з %d питань.\nВаш бал: %d.\nКількість помилок: %d.\nРезультати збережено в базу!",
+                            correctCount, totalQuestions, score, mistakes);
+
+            showAlert(Alert.AlertType.INFORMATION, "Результат", resultText);
+
+            // Закриваємо вікно гри
+            ((Stage) root.getScene().getWindow()).close();
+
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Помилка збереження", e.getMessage());
+        }
+    }
+
+    private boolean isAnswerCorrect(String userAnswer, String expectedAnswer) {
+        userAnswer = normalizeAnswer(userAnswer);
+        expectedAnswer = normalizeAnswer(expectedAnswer);
+
+        if (expectedAnswer.contains("|")) {
+            String[] parts = expectedAnswer.split("\\|");
+            for (String part : parts) {
+                if (userAnswer.equals(part.trim())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return userAnswer.equals(expectedAnswer);
+    }
+
+    private String normalizeAnswer(String text) {
+        if (text == null) return "";
+        return text.trim().toLowerCase().replace("`", "'").replace("’", "'");
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+}
+
+
+
+GameService.java
+--------------------------------------------------
+package com.mysuperproject.service;
+
+import com.mysuperproject.dao.AchievementDao;
+import com.mysuperproject.dao.GameDao;
+import com.mysuperproject.dao.GameSessionDao;
+import com.mysuperproject.dao.QuestionDao;
+import com.mysuperproject.dao.UserMistakeDao;
+import com.mysuperproject.entity.Achievement;
+import com.mysuperproject.entity.Game;
+import com.mysuperproject.entity.GameSession;
+import com.mysuperproject.entity.Question;
+import com.mysuperproject.entity.User;
+import com.mysuperproject.entity.UserMistake;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class GameService {
+    private final GameSessionDao gameSessionDao = new GameSessionDao();
+    private final AchievementDao achievementDao = new AchievementDao();
+    private final GameDao gameDao = new GameDao();
+    private final QuestionDao questionDao = new QuestionDao();
+    private final UserMistakeDao userMistakeDao = new UserMistakeDao();
+
+    public Game getGameById(int id) {
+        return gameDao.findById(id).orElse(null);
+    }
+
+    public List<Game> getAllGames() {
+        return gameDao.findAll();
+    }
+
+    public List<Question> getQuestionsForGame(int gameId) {
+        return questionDao.findByGameId(gameId);
+    }
+
+    public void addQuestion(int gameId, String text, String answer) {
+        Question q = new Question();
+        q.setGameId(gameId);
+        q.setQuestionText(text);
+        q.setCorrectAnswer(answer);
+        questionDao.save(q);
+    }
+
+    public void deleteQuestion(int questionId) {
+        questionDao.delete(questionId);
+    }
+
+    public void playGame(User user, Game game, int score, int mistakes) {
+        // Зберігаємо результати ігрової сесії
+        GameSession session = new GameSession();
+        session.setUserId(user.getId());
+        session.setGameId(game.getId());
+        session.setScore(score);
+        session.setMistakesCount(mistakes);
+        session.setCompletedAt(LocalDateTime.now());
+        gameSessionDao.save(session);
+
+        // Перевіряємо умови для отримання досягнень
+
+        // Досягнення 1: "Перший успіх"
+        achievementDao.assignAchievementToUser(user.getId(), 1);
+
+        // Досягнення 2: "Абсолютний грамотій" (максимальний бал, без помилок)
+        if (score >= game.getMaxScore() && mistakes == 0) {
+            achievementDao.assignAchievementToUser(user.getId(), 2);
+        }
+
+        // Досягнення 3: "Майстер Апострофа" (бали >= 90 в темі апостроф, gameId = 1 або 2)
+        if ((game.getId() == 1 || game.getId() == 2) && score >= 90) {
+            achievementDao.assignAchievementToUser(user.getId(), 3);
+        }
+
+        // Досягнення 4: "Експерт подвоєння" (бали >= 90 в подвоєнні літер, gameId = 3)
+        if (game.getId() == 3 && score >= 90) {
+            achievementDao.assignAchievementToUser(user.getId(), 4);
+        }
+
+        List<GameSession> userSessions = getUserSessions(user);
+        int totalSessions = userSessions.size();
+
+        // Досягнення 5: "Марафонець" (виконано 5 сесій тренувань)
+        if (totalSessions >= 5) {
+            achievementDao.assignAchievementToUser(user.getId(), 5);
+        }
+
+        // Досягнення 6: "Непохитний" (виконано 10 сесій тренувань)
+        if (totalSessions >= 10) {
+            achievementDao.assignAchievementToUser(user.getId(), 6);
+        }
+
+        // Досягнення 7: "Робота над помилками" (завершено з >= 3 помилками, але успішно)
+        if (mistakes >= 3 && score >= 50) {
+            achievementDao.assignAchievementToUser(user.getId(), 7);
+        }
+
+        // Досягнення 8: "Справжній Мовознавець" (пройдено щонайменше 3 різні вправи)
+        long distinctGames = userSessions.stream().map(GameSession::getGameId).distinct().count();
+        if (distinctGames >= 3) {
+            achievementDao.assignAchievementToUser(user.getId(), 8);
+        }
+    }
+
+    public List<Achievement> getUserAchievements(User user) {
+        return achievementDao.findAchievementsByUserId(user.getId());
+    }
+
+    public List<GameSession> getUserSessions(User user) {
+        List<GameSession> all = gameSessionDao.findAll();
+        // Фільтруємо сесії для конкретного користувача
+        return all.stream()
+                .filter(s -> s.getUserId().equals(user.getId()))
+                .collect(Collectors.toList());
+    }
+
+    public void recordMistake(int userId, int questionId) {
+        userMistakeDao.incrementOrCreate(userId, questionId);
+    }
+
+    public void resolveMistake(int userId, int questionId) {
+        userMistakeDao.deleteByUserAndQuestion(userId, questionId);
+    }
+
+    public List<Question> getUserMistakeQuestions(User user) {
+        List<UserMistake> mistakes = userMistakeDao.findByUserId(user.getId());
+        return mistakes.stream()
+                .map(m -> questionDao.findById(m.getQuestionId()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public List<LeaderboardEntry> getClassLeaderboard() {
+        List<LeaderboardEntry> leaderboard = new java.util.ArrayList<>();
+        String sql =
+                "SELECT u.username, SUM(gs.score) as total_score "
+                        + "FROM users u "
+                        + "JOIN game_sessions gs ON u.id = gs.user_id "
+                        + "GROUP BY u.id, u.username "
+                        + "ORDER BY total_score DESC";
+        try (java.sql.Connection conn = com.mysuperproject.util.ConnectionPool.get();
+                java.sql.PreparedStatement stmt = conn.prepareStatement(sql);
+                java.sql.ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                leaderboard.add(
+                        new LeaderboardEntry(rs.getString("username"), rs.getInt("total_score")));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return leaderboard;
+    }
+
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
+    public static class LeaderboardEntry {
+        private String username;
+        private Integer totalScore;
+    }
+}
+
+
+
+GameSession.java
+--------------------------------------------------
+package com.mysuperproject.entity;
+
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "game_sessions")
+public class GameSession {
+    @Id(name = "id")
+    private Integer id;
+
+    @Column(name = "user_id")
+    private Integer userId;
+
+    @Column(name = "game_id")
+    private Integer gameId;
+
+    @Column(name = "score")
+    private Integer score;
+
+    @Column(name = "mistakes_count")
+    private Integer mistakesCount;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 }
 
 
@@ -349,642 +1354,21 @@ public abstract class GenericDao<T, K> implements Dao<T, K> {
 
 
 
-QuestionDao.java
+Id.java
 --------------------------------------------------
-package com.mysuperproject.dao;
-
-import com.mysuperproject.entity.Question;
-import java.util.List;
-import java.util.stream.Collectors;
-
-public class QuestionDao extends GenericDao<Question, Integer> {
-    public QuestionDao() {
-        super(Question.class);
-    }
-
-    public List<Question> findByGameId(int gameId) {
-        return findAll().stream().filter(q -> q.getGameId() == gameId).collect(Collectors.toList());
-    }
-}
-
-
-
-SubjectDao.java
---------------------------------------------------
-package com.mysuperproject.dao;
-
-import com.mysuperproject.entity.Subject;
-
-public class SubjectDao extends GenericDao<Subject, Integer> {
-    public SubjectDao() {
-        super(Subject.class);
-    }
-}
-
-
-
-UserDao.java
---------------------------------------------------
-package com.mysuperproject.dao;
-
-import com.mysuperproject.entity.User;
-
-public class UserDao extends GenericDao<User, Integer> {
-    public UserDao() {
-        super(User.class);
-    }
-
-    public java.util.Optional<User> findByUsername(String username) {
-        String sql = "SELECT * FROM users WHERE username = ?";
-        try (java.sql.Connection connection = com.mysuperproject.util.ConnectionPool.get();
-                java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, username);
-            java.sql.ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return java.util.Optional.of(mapResultSetToEntity(resultSet));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return java.util.Optional.empty();
-    }
-}
-
-
-
-Achievement.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "achievements")
-public class Achievement {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "name")
-    private String name;
-
-    @Column(name = "requirement_desc")
-    private String requirementDesc;
-}
-
-
-
-Game.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "games")
-public class Game {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "subject_id")
-    private Integer subjectId;
-
-    @Column(name = "title")
-    private String title;
-
-    @Column(name = "max_score")
-    private Integer maxScore;
-}
-
-
-
-GameSession.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import java.time.LocalDateTime;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "game_sessions")
-public class GameSession {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "user_id")
-    private Integer userId;
-
-    @Column(name = "game_id")
-    private Integer gameId;
-
-    @Column(name = "score")
-    private Integer score;
-
-    @Column(name = "mistakes_count")
-    private Integer mistakesCount;
-
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
-}
-
-
-
-Question.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "questions")
-public class Question {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "game_id")
-    private Integer gameId;
-
-    @Column(name = "question_text")
-    private String questionText;
-
-    @Column(name = "correct_answer")
-    private String correctAnswer;
-}
-
-
-
-Subject.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "subjects")
-public class Subject {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "name")
-    private String name;
-
-    @Column(name = "description")
-    private String description;
-}
-
-
-
-User.java
---------------------------------------------------
-package com.mysuperproject.entity;
-
-import com.mysuperproject.annotation.Column;
-import com.mysuperproject.annotation.Id;
-import com.mysuperproject.annotation.Table;
-import java.time.LocalDateTime;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Table(name = "users")
-public class User {
-    @Id(name = "id")
-    private Integer id;
-
-    @Column(name = "username")
-    private String username;
-
-    @Column(name = "email")
-    private String email;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "password")
-    private String password;
-}
-
-
-
-SmtpEmailSender.java
---------------------------------------------------
-package com.mysuperproject.infrastructure.email;
-
-import com.mysuperproject.service.port.EmailSender;
-import com.mysuperproject.util.PropertiesUtil;
-import java.util.Properties;
-import javax.mail.*;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
-
-public class SmtpEmailSender implements EmailSender {
-
-    private final String username;
-    private final String password;
-    private final String fromEmail;
-    private final Properties props;
-
-    public SmtpEmailSender() {
-        // Зчитуємо конфігурацію з application.properties
-        this.username = PropertiesUtil.get("mail.username");
-        this.password = PropertiesUtil.get("mail.password");
-        this.fromEmail = PropertiesUtil.get("mail.from");
-
-        props = new Properties();
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true"); // Важливо для Mailtrap та інших сервісів
-        props.put("mail.smtp.host", PropertiesUtil.get("mail.host"));
-        props.put("mail.smtp.port", PropertiesUtil.get("mail.port"));
-    }
-
-    @Override
-    public void sendEmail(String to, String subject, String text) {
-        Session session =
-                Session.getInstance(
-                        props,
-                        new Authenticator() {
-                            @Override
-                            protected PasswordAuthentication getPasswordAuthentication() {
-                                return new PasswordAuthentication(username, password);
-                            }
-                        });
-
-        try {
-            Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(fromEmail));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
-            message.setSubject(subject);
-            message.setText(text);
-
-            Transport.send(message);
-            System.out.println("Email sent successfully to " + to);
-
-        } catch (AuthenticationFailedException e) {
-            System.err.println(
-                    "Authentication failed for email sender. Please check your mail.username and mail.password in application.properties.");
-        } catch (MessagingException e) {
-            System.err.println("Failed to send email to " + to);
-            e.printStackTrace();
-            throw new RuntimeException("Помилка при надсиланні email: " + e.getMessage(), e);
-        }
-    }
-}
-
-
-
-BcryptPasswordHasher.java
---------------------------------------------------
-package com.mysuperproject.infrastructure.security;
-
-import com.mysuperproject.service.port.PasswordHasher;
-import org.mindrot.jbcrypt.BCrypt;
-
-public class BcryptPasswordHasher implements PasswordHasher {
-
-    @Override
-    public String hash(String rawPassword) {
-        if (rawPassword == null || rawPassword.isEmpty()) {
-            throw new IllegalArgumentException("Password cannot be empty");
-        }
-        return BCrypt.hashpw(rawPassword, BCrypt.gensalt(12));
-    }
-
-    @Override
-    public boolean verify(String rawPassword, String hashedPassword) {
-        if (rawPassword == null || hashedPassword == null) {
-            return false;
-        }
-        try {
-            return BCrypt.checkpw(rawPassword, hashedPassword);
-        } catch (IllegalArgumentException e) {
-            // Can happen if hashedPassword is not a valid BCrypt hash
-            return false;
-        }
-    }
-}
-
-
-
-EmailSender.java
---------------------------------------------------
-package com.mysuperproject.service.port;
-
-public interface EmailSender {
-    void sendEmail(String to, String subject, String text);
-}
-
-
-
-PasswordHasher.java
---------------------------------------------------
-package com.mysuperproject.service.port;
-
-public interface PasswordHasher {
-    String hash(String rawPassword);
-
-    boolean verify(String rawPassword, String hashedPassword);
-}
-
-
-
-AchievementService.java
---------------------------------------------------
-package com.mysuperproject.service;
-
-import com.mysuperproject.dao.AchievementDao;
-import com.mysuperproject.entity.Achievement;
-import java.util.List;
-import java.util.Optional;
-
-public class AchievementService {
-    private final AchievementDao achievementDao = new AchievementDao();
-
-    public Achievement createAchievement(String name, String requirementDesc) {
-        if (name == null
-                || name.isEmpty()
-                || requirementDesc == null
-                || requirementDesc.isEmpty()) {
-            throw new IllegalArgumentException("Дані досягнення не можуть бути порожніми");
-        }
-        Achievement achievement = new Achievement();
-        achievement.setName(name);
-        achievement.setRequirementDesc(requirementDesc);
-        return achievementDao.save(achievement);
-    }
-
-    public Optional<Achievement> getAchievementById(int id) {
-        return achievementDao.findById(id);
-    }
-
-    public List<Achievement> getAllAchievements() {
-        return achievementDao.findAll();
-    }
-
-    public void updateAchievement(Achievement achievement) {
-        if (achievement == null || achievement.getId() == null) {
-            throw new IllegalArgumentException("Некоректні дані досягнення для оновлення");
-        }
-        achievementDao.update(achievement);
-    }
-
-    public void deleteAchievement(int id) {
-        achievementDao.delete(id);
-    }
-}
-
-
-
-GameService.java
---------------------------------------------------
-package com.mysuperproject.service;
-
-import com.mysuperproject.dao.AchievementDao;
-import com.mysuperproject.dao.GameDao;
-import com.mysuperproject.dao.GameSessionDao;
-import com.mysuperproject.dao.QuestionDao;
-import com.mysuperproject.entity.Achievement;
-import com.mysuperproject.entity.Game;
-import com.mysuperproject.entity.GameSession;
-import com.mysuperproject.entity.Question;
-import com.mysuperproject.entity.User;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
-public class GameService {
-    private final GameSessionDao gameSessionDao = new GameSessionDao();
-    private final AchievementDao achievementDao = new AchievementDao();
-    private final GameDao gameDao = new GameDao();
-    private final QuestionDao questionDao = new QuestionDao();
-
-    public Game getGameById(int id) {
-        return gameDao.findById(id).orElse(null);
-    }
-
-    public List<Game> getAllGames() {
-        return gameDao.findAll();
-    }
-
-    public List<Question> getQuestionsForGame(int gameId) {
-        return questionDao.findByGameId(gameId);
-    }
-
-    public void addQuestion(int gameId, String text, String answer) {
-        Question q = new Question();
-        q.setGameId(gameId);
-        q.setQuestionText(text);
-        q.setCorrectAnswer(answer);
-        questionDao.save(q);
-    }
-
-    public void deleteQuestion(int questionId) {
-        questionDao.delete(questionId);
-    }
-
-    public void playGame(User user, Game game, int score, int mistakes) {
-        // Зберігаємо результати ігрової сесії
-        GameSession session = new GameSession();
-        session.setUserId(user.getId());
-        session.setGameId(game.getId());
-        session.setScore(score);
-        session.setMistakesCount(mistakes);
-        session.setCompletedAt(LocalDateTime.now());
-        gameSessionDao.save(session);
-
-        // Перевіряємо умови для отримання досягнень
-
-        // Досягнення 1: "Перші кроки"
-        achievementDao.assignAchievementToUser(user.getId(), 1);
-
-        // Досягнення 2: "Ідеально!" (максимальний бал, без помилок)
-        if (score >= game.getMaxScore() && mistakes == 0) {
-            achievementDao.assignAchievementToUser(user.getId(), 2);
-        }
-    }
-
-    public List<Achievement> getUserAchievements(User user) {
-        return achievementDao.findAchievementsByUserId(user.getId());
-    }
-
-    public List<GameSession> getUserSessions(User user) {
-        List<GameSession> all = gameSessionDao.findAll();
-        // Фільтруємо сесії для конкретного користувача
-        return all.stream()
-                .filter(s -> s.getUserId().equals(user.getId()))
-                .collect(Collectors.toList());
-    }
-}
-
-
-
-SubjectService.java
---------------------------------------------------
-package com.mysuperproject.service;
-
-import com.mysuperproject.dao.SubjectDao;
-import com.mysuperproject.entity.Subject;
-import java.util.List;
-import java.util.Optional;
-
-public class SubjectService {
-    private final SubjectDao subjectDao = new SubjectDao();
-
-    public Subject createSubject(String name, String description) {
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Назва предмету не може бути порожньою");
-        }
-        Subject subject = new Subject();
-        subject.setName(name);
-        subject.setDescription(description);
-        return subjectDao.save(subject);
-    }
-
-    public Optional<Subject> getSubjectById(int id) {
-        return subjectDao.findById(id);
-    }
-
-    public List<Subject> getAllSubjects() {
-        return subjectDao.findAll();
-    }
-
-    public void updateSubject(Subject subject) {
-        if (subject == null || subject.getId() == null) {
-            throw new IllegalArgumentException("Некоректні дані предмету для оновлення");
-        }
-        subjectDao.update(subject);
-    }
-
-    public void deleteSubject(int id) {
-        subjectDao.delete(id);
-    }
-}
-
-
-
-UserService.java
---------------------------------------------------
-package com.mysuperproject.service;
-
-import com.mysuperproject.dao.UserDao;
-import com.mysuperproject.entity.User;
-import com.mysuperproject.service.port.EmailSender;
-import com.mysuperproject.service.port.PasswordHasher;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
-
-public class UserService {
-    private final UserDao userDao;
-    private final PasswordHasher passwordHasher;
-    private final EmailSender emailSender;
-
-    public UserService(UserDao userDao, PasswordHasher passwordHasher, EmailSender emailSender) {
-        this.userDao = userDao;
-        this.passwordHasher = passwordHasher;
-        this.emailSender = emailSender;
-    }
-
-    public void checkUserExists(String username) {
-        if (userDao.findByUsername(username).isPresent()) {
-            throw new IllegalArgumentException("Користувач з таким іменем вже існує!");
-        }
-    }
-
-    public String sendVerificationCode(String email, String username) {
-        String verificationCode = UUID.randomUUID().toString().substring(0, 6);
-        String subject = "Код підтвердження MySuperProject";
-        String text =
-                String.format(
-                        "Привіт, %s!\n\nВаш код підтвердження для реєстрації: %s\n\nНікому не повідомляйте цей код.",
-                        username, verificationCode);
-
-        emailSender.sendEmail(email, subject, text);
-        return verificationCode;
-    }
-
-    public User register(String username, String email, String rawPassword) {
-        checkUserExists(username);
-
-        User newUser = new User();
-        newUser.setUsername(username);
-        newUser.setEmail(email);
-
-        // Хешуємо пароль перед збереженням
-        String hashedPassword = passwordHasher.hash(rawPassword);
-        newUser.setPassword(hashedPassword);
-        newUser.setCreatedAt(LocalDateTime.now());
-
-        return userDao.save(newUser);
-    }
-
-    public Optional<User> login(String username, String rawPassword) {
-        Optional<User> userOpt = userDao.findByUsername(username);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            // Перевіряємо хеш пароля
-            if (passwordHasher.verify(rawPassword, user.getPassword())) {
-                return Optional.of(user);
-            }
-        }
-        return Optional.empty();
-    }
-
-    public java.util.List<User> getAllUsers() {
-        return userDao.findAll();
-    }
-
-    public void deleteUser(int id) {
-        userDao.delete(id);
-    }
+package com.mysuperproject.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface Id {
+    String name() default "id";
+
+    boolean autoIncrement() default true;
 }
 
 
@@ -1021,637 +1405,13 @@ public class IdentityMap<K, T> {
 
 
 
-UnitOfWork.java
+Launcher.java
 --------------------------------------------------
-package com.mysuperproject.uow;
-
-import com.mysuperproject.util.ConnectionPool;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-public class UnitOfWork implements AutoCloseable {
-    private final Connection connection;
-    private final List<Runnable> newEntities = new ArrayList<>();
-    private final List<Runnable> dirtyEntities = new ArrayList<>();
-    private final List<Runnable> deletedEntities = new ArrayList<>();
-
-    public UnitOfWork() throws SQLException {
-        this.connection = ConnectionPool.get();
-        this.connection.setAutoCommit(false); // Start transaction
-    }
-
-    public Connection getConnection() {
-        return connection;
-    }
-
-    public void registerNew(Runnable insertAction) {
-        newEntities.add(insertAction);
-    }
-
-    public void registerDirty(Runnable updateAction) {
-        dirtyEntities.add(updateAction);
-    }
-
-    public void registerDeleted(Runnable deleteAction) {
-        deletedEntities.add(deleteAction);
-    }
-
-    public void commit() throws SQLException {
-        try {
-            for (Runnable action : newEntities) {
-                action.run();
-            }
-            for (Runnable action : dirtyEntities) {
-                action.run();
-            }
-            for (Runnable action : deletedEntities) {
-                action.run();
-            }
-            connection.commit();
-            clear();
-        } catch (Exception e) {
-            connection.rollback();
-            throw new SQLException("Transaction failed, rolled back", e);
-        }
-    }
-
-    public void rollback() {
-        try {
-            connection.rollback();
-            clear();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void clear() {
-        newEntities.clear();
-        dirtyEntities.clear();
-        deletedEntities.clear();
-    }
-
-    @Override
-    public void close() throws Exception {
-        try {
-            rollback(); // Safe rollback just in case commit wasn't called
-        } finally {
-            if (connection != null && !connection.isClosed()) {
-                connection.setAutoCommit(true);
-                connection.close(); // Return to pool
-            }
-        }
-    }
-}
-
-
-
-ConnectionPool.java
---------------------------------------------------
-package com.mysuperproject.util;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-
-public final class ConnectionPool {
-
-    private static final String URL_KEY = "db.url";
-    private static final String USERNAME_KEY = "db.username";
-    private static final String PASSWORD_KEY = "db.password";
-    private static final String POOL_SIZE_KEY = "db.pool.size";
-    private static final int DEFAULT_POOL_SIZE = 10;
-
-    private static BlockingQueue<Connection> pool;
-    private static List<Connection> sourceConnections;
-
-    static {
-        initConnectionPool();
-    }
-
-    private ConnectionPool() {}
-
-    private static void initConnectionPool() {
-        String poolSizeStr = PropertiesUtil.get(POOL_SIZE_KEY);
-        int poolSize = poolSizeStr != null ? Integer.parseInt(poolSizeStr) : DEFAULT_POOL_SIZE;
-        pool = new ArrayBlockingQueue<>(poolSize);
-        sourceConnections = new ArrayList<>(poolSize);
-
-        for (int i = 0; i < poolSize; i++) {
-            Connection connection = open();
-            // Wrap the connection with proxy to prevent actual closing when close() is called
-            // Instead, we could return it to the pool.
-            // For simplicity in this assignment, we'll just use a Proxy.
-            var proxyConnection =
-                    (Connection)
-                            java.lang.reflect.Proxy.newProxyInstance(
-                                    ConnectionPool.class.getClassLoader(),
-                                    new Class[] {Connection.class},
-                                    (proxy, method, args) -> {
-                                        if ("close".equals(method.getName())) {
-                                            pool.put((Connection) proxy);
-                                            return null;
-                                        } else {
-                                            return method.invoke(connection, args);
-                                        }
-                                    });
-            pool.add(proxyConnection);
-            sourceConnections.add(connection);
-        }
-    }
-
-    public static Connection get() {
-        try {
-            return pool.take();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Error getting connection from pool", e);
-        }
-    }
-
-    private static Connection open() {
-        try {
-            return DriverManager.getConnection(
-                    PropertiesUtil.get(URL_KEY),
-                    PropertiesUtil.get(USERNAME_KEY),
-                    PropertiesUtil.get(PASSWORD_KEY));
-        } catch (SQLException e) {
-            throw new RuntimeException("Error opening connection", e);
-        }
-    }
-
-    public static void closePool() {
-        for (Connection connection : sourceConnections) {
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                throw new RuntimeException("Error closing pool connections", e);
-            }
-        }
-    }
-}
-
-
-
-PropertiesUtil.java
---------------------------------------------------
-package com.mysuperproject.util;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
-public final class PropertiesUtil {
-
-    private static final Properties PROPERTIES = new Properties();
-
-    static {
-        loadProperties();
-    }
-
-    private PropertiesUtil() {}
-
-    public static String get(String key) {
-        return PROPERTIES.getProperty(key);
-    }
-
-    public static void set(String key, String value) {
-        PROPERTIES.setProperty(key, value);
-    }
-
-    private static void loadProperties() {
-        try (InputStream inputStream =
-                PropertiesUtil.class
-                        .getClassLoader()
-                        .getResourceAsStream("application.properties")) {
-            if (inputStream != null) {
-                PROPERTIES.load(inputStream);
-            } else {
-                System.err.println("Warning: application.properties not found in classpath.");
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load application.properties", e);
-        }
-    }
-}
-
-
-
-AdminView.java
---------------------------------------------------
-package com.mysuperproject.view;
-
-import com.mysuperproject.App;
-import com.mysuperproject.entity.Subject;
-import com.mysuperproject.entity.User;
-import com.mysuperproject.viewmodel.SubjectViewModel;
-import com.mysuperproject.viewmodel.UserViewModel;
-import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.*;
-
-public class AdminView {
-    private final VBox root;
-
-    private final SubjectViewModel subjectViewModel = new SubjectViewModel();
-    private final UserViewModel userViewModel = new UserViewModel();
-    private final com.mysuperproject.viewmodel.QuestionViewModel questionViewModel =
-            new com.mysuperproject.viewmodel.QuestionViewModel();
-
-    public AdminView() {
-        root = new VBox();
-        root.setSpacing(10);
-        root.setPadding(new Insets(10));
-
-        // Header
-        HBox header = new HBox(10);
-        Label title = new Label("Admin Panel - System Data");
-        title.getStyleClass().add("title-label");
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button logoutBtn = new Button("Logout");
-        logoutBtn.getStyleClass().add("button-danger");
-        logoutBtn.setOnAction(e -> App.showLoginView());
-        header.getChildren().addAll(title, spacer, logoutBtn);
-
-        TabPane tabPane = new TabPane();
-        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-
-        // Вкладка для Subjects
-        Tab subjectTab = new Tab("Subjects", createSubjectView());
-
-        // Вкладка для Users
-        Tab userTab = new Tab("Users", createUserView());
-
-        // Вкладка для Questions
-        Tab questionTab = new Tab("Questions", createQuestionView());
-
-        tabPane.getTabs().addAll(subjectTab, userTab, questionTab);
-
-        VBox.setVgrow(tabPane, Priority.ALWAYS);
-        root.getChildren().addAll(header, tabPane);
-    }
-
-    public VBox getView() {
-        return root;
-    }
-
-    private VBox createSubjectView() {
-        VBox vbox = new VBox(10);
-        vbox.setPadding(new Insets(10));
-
-        // Search bar
-        HBox searchBox = new HBox(10);
-        TextField searchField = new TextField();
-        searchField.setPromptText("Пошук предмету (фільтрація)...");
-        searchField.textProperty().bindBidirectional(subjectViewModel.searchQueryProperty());
-        searchBox.getChildren().addAll(new Label("Пошук:"), searchField);
-
-        // Table
-        TableView<Subject> table = new TableView<>();
-
-        TableColumn<Subject, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-
-        TableColumn<Subject, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-
-        TableColumn<Subject, String> descCol = new TableColumn<>("Description");
-        descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
-
-        table.getColumns().addAll(idCol, nameCol, descCol);
-
-        // Bind table items to filtered list
-        table.setItems(subjectViewModel.getFilteredSubjects());
-
-        // CRUD Form
-        HBox formBox = new HBox(10);
-        TextField nameField = new TextField();
-        nameField.setPromptText("Name");
-        TextField descField = new TextField();
-        descField.setPromptText("Description");
-
-        Button addButton = new Button("Add");
-        addButton.getStyleClass().add("button-success");
-        addButton.setOnAction(
-                e -> {
-                    subjectViewModel.addSubject(nameField.getText(), descField.getText());
-                    nameField.clear();
-                    descField.clear();
-                });
-
-        Button deleteButton = new Button("Delete");
-        deleteButton.getStyleClass().add("button-danger");
-        deleteButton.setOnAction(
-                e -> {
-                    Subject selected = table.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        subjectViewModel.deleteSubject(selected);
-                    }
-                });
-
-        formBox.getChildren().addAll(nameField, descField, addButton, deleteButton);
-
-        VBox.setVgrow(table, Priority.ALWAYS);
-        vbox.getChildren().addAll(searchBox, table, formBox);
-        return vbox;
-    }
-
-    private VBox createUserView() {
-        VBox vbox = new VBox(10);
-        vbox.setPadding(new Insets(10));
-
-        // Table
-        TableView<User> table = new TableView<>();
-
-        TableColumn<User, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-
-        TableColumn<User, String> nameCol = new TableColumn<>("Username");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
-
-        TableColumn<User, String> emailCol = new TableColumn<>("Email");
-        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
-
-        table.getColumns().addAll(idCol, nameCol, emailCol);
-        table.setItems(userViewModel.getUsers());
-
-        // CRUD Form
-        HBox formBox = new HBox(10);
-        TextField usernameField = new TextField();
-        usernameField.setPromptText("Username");
-        TextField emailField = new TextField();
-        emailField.setPromptText("Email");
-        PasswordField passField = new PasswordField();
-        passField.setPromptText("Password");
-
-        Button addButton = new Button("Add User (Register)");
-        addButton.getStyleClass().add("button-success");
-        addButton.setOnAction(
-                e -> {
-                    userViewModel.confirmAndAddUser(
-                            usernameField.getText(), emailField.getText(), passField.getText());
-                    usernameField.clear();
-                    emailField.clear();
-                    passField.clear();
-                });
-
-        Button deleteButton = new Button("Delete");
-        deleteButton.getStyleClass().add("button-danger");
-        deleteButton.setOnAction(
-                e -> {
-                    User selected = table.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        userViewModel.deleteUser(selected);
-                    }
-                });
-
-        formBox.getChildren().addAll(usernameField, emailField, passField, addButton, deleteButton);
-
-        VBox.setVgrow(table, Priority.ALWAYS);
-        vbox.getChildren().addAll(table, formBox);
-        return vbox;
-    }
-
-    private VBox createQuestionView() {
-        VBox vbox = new VBox(10);
-        vbox.setPadding(new Insets(10));
-
-        // ComboBox to select game
-        HBox topBox = new HBox(10);
-        Label lbl = new Label("Оберіть гру:");
-        ComboBox<com.mysuperproject.entity.Game> gameCombo = new ComboBox<>();
-        gameCombo.setItems(questionViewModel.getGames());
-        // set converter to show game title
-        gameCombo.setConverter(
-                new javafx.util.StringConverter<>() {
-                    @Override
-                    public String toString(com.mysuperproject.entity.Game object) {
-                        return object == null ? "" : object.getTitle();
-                    }
-
-                    @Override
-                    public com.mysuperproject.entity.Game fromString(String string) {
-                        return null;
-                    }
-                });
-        topBox.getChildren().addAll(lbl, gameCombo);
-
-        TableView<com.mysuperproject.entity.Question> table = new TableView<>();
-        TableColumn<com.mysuperproject.entity.Question, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-        TableColumn<com.mysuperproject.entity.Question, String> textCol =
-                new TableColumn<>("Питання");
-        textCol.setCellValueFactory(new PropertyValueFactory<>("questionText"));
-        textCol.setPrefWidth(400);
-        TableColumn<com.mysuperproject.entity.Question, String> ansCol =
-                new TableColumn<>("Відповідь");
-        ansCol.setCellValueFactory(new PropertyValueFactory<>("correctAnswer"));
-        ansCol.setPrefWidth(200);
-        table.getColumns().addAll(idCol, textCol, ansCol);
-
-        table.setItems(questionViewModel.getQuestions());
-
-        gameCombo
-                .getSelectionModel()
-                .selectedItemProperty()
-                .addListener(
-                        (obs, oldVal, newVal) -> {
-                            if (newVal != null) {
-                                questionViewModel.loadQuestionsForGame(newVal.getId());
-                            }
-                        });
-
-        HBox formBox = new HBox(10);
-        TextField qField = new TextField();
-        qField.setPromptText("Питання");
-        TextField aField = new TextField();
-        aField.setPromptText("Відповідь");
-
-        Button addBtn = new Button("Add");
-        addBtn.getStyleClass().add("button-success");
-        addBtn.setOnAction(
-                e -> {
-                    com.mysuperproject.entity.Game selectedGame =
-                            gameCombo.getSelectionModel().getSelectedItem();
-                    if (selectedGame != null
-                            && !qField.getText().isEmpty()
-                            && !aField.getText().isEmpty()) {
-                        questionViewModel.addQuestion(
-                                selectedGame.getId(), qField.getText(), aField.getText());
-                        qField.clear();
-                        aField.clear();
-                    }
-                });
-
-        Button delBtn = new Button("Delete");
-        delBtn.getStyleClass().add("button-danger");
-        delBtn.setOnAction(
-                e -> {
-                    com.mysuperproject.entity.Question selected =
-                            table.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        questionViewModel.deleteQuestion(selected);
-                    }
-                });
-
-        formBox.getChildren().addAll(qField, aField, addBtn, delBtn);
-
-        VBox.setVgrow(table, Priority.ALWAYS);
-        vbox.getChildren().addAll(topBox, table, formBox);
-        return vbox;
-    }
-}
-
-
-
-GamePlayView.java
---------------------------------------------------
-package com.mysuperproject.view;
-
-import com.mysuperproject.entity.Game;
-import com.mysuperproject.entity.User;
-import com.mysuperproject.service.GameService;
-import java.util.ArrayList;
-import java.util.List;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
-
-public class GamePlayView {
-
-    private final ScrollPane root;
-    private final GameService gameService = new GameService();
-    private final User user;
-    private final int gameId;
-
-    private final List<TextField> answerFields = new ArrayList<>();
-    private final List<String> correctAnswers = new ArrayList<>();
-
-    public GamePlayView(User user, int gameId, String gameTitle) {
-        this.user = user;
-        this.gameId = gameId;
-
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.setAlignment(Pos.TOP_LEFT);
-
-        Label titleLabel = new Label(gameTitle);
-        titleLabel.getStyleClass().add("title-label");
-        content.getChildren().add(titleLabel);
-
-        Label scoreLabel =
-                new Label("Бали: 0"); // Just a placeholder, as it's not dynamically updated here
-        // during play anyway
-        scoreLabel.getStyleClass().add("subtitle-label");
-        Label mistakesLabel = new Label("Помилки: 0");
-        mistakesLabel.getStyleClass().add("subtitle-label");
-        mistakesLabel.setStyle("-fx-text-fill: #E74C3C;");
-        content.getChildren().addAll(scoreLabel, mistakesLabel);
-
-        setupQuestions(content);
-
-        Button submitBtn = new Button("Завершити та Перевірити");
-        submitBtn.getStyleClass().add("button-primary");
-        submitBtn.setOnAction(e -> checkAnswersAndSave());
-
-        content.getChildren().add(submitBtn);
-
-        root = new ScrollPane(content);
-        root.setFitToWidth(true);
-    }
-
-    public ScrollPane getView() {
-        return root;
-    }
-
-    private void setupQuestions(VBox content) {
-        List<com.mysuperproject.entity.Question> questions =
-                gameService.getQuestionsForGame(gameId);
-        if (questions.isEmpty()) {
-            Label noQ = new Label("Немає завдань для цієї гри.");
-            noQ.getStyleClass().add("subtitle-label");
-            content.getChildren().add(noQ);
-            return;
-        }
-
-        for (com.mysuperproject.entity.Question q : questions) {
-            addQuestion(content, q.getQuestionText(), q.getCorrectAnswer());
-        }
-    }
-
-    private void addQuestion(VBox content, String questionText, String correctAnswer) {
-        Label qLabel = new Label(questionText);
-        qLabel.getStyleClass().add("subtitle-label");
-        TextField aField = new TextField();
-        aField.setPromptText("Ваша відповідь...");
-
-        answerFields.add(aField);
-        correctAnswers.add(correctAnswer);
-
-        content.getChildren().addAll(qLabel, aField);
-    }
-
-    private void checkAnswersAndSave() {
-        int correctCount = 0;
-        int totalQuestions = correctAnswers.size();
-
-        for (int i = 0; i < totalQuestions; i++) {
-            String userAnswer = answerFields.get(i).getText().trim().toLowerCase();
-            String expectedAnswer = correctAnswers.get(i).toLowerCase();
-
-            // Спрощена перевірка
-            if (userAnswer.equals(expectedAnswer)
-                    || (userAnswer.equals("1/2") && expectedAnswer.equals("2/4"))) {
-                correctCount++;
-            }
-        }
-
-        Game game = gameService.getGameById(gameId);
-        if (game == null) {
-            showAlert(Alert.AlertType.ERROR, "Помилка", "Гру не знайдено в базі даних!");
-            return;
-        }
-
-        int score = (int) Math.round((double) correctCount / totalQuestions * game.getMaxScore());
-        int mistakes = totalQuestions - correctCount;
-
-        try {
-            gameService.playGame(user, game, score, mistakes);
-
-            String resultText =
-                    String.format(
-                            "Ви відповіли правильно на %d з %d питань.\nВаш бал: %d.\nКількість помилок: %d.\nРезультати збережено в базу!",
-                            correctCount, totalQuestions, score, mistakes);
-
-            showAlert(Alert.AlertType.INFORMATION, "Результат", resultText);
-
-            // Закриваємо вікно гри
-            ((Stage) root.getScene().getWindow()).close();
-
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Помилка збереження", e.getMessage());
-        }
-    }
-
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+package com.mysuperproject;
+
+public class Launcher {
+    public static void main(String[] args) {
+        App.main(args);
     }
 }
 
@@ -1749,23 +1509,476 @@ public class LoginView {
     }
 
     private void showAdminLoginWindow() {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Admin Login");
-        dialog.setHeaderText("Введіть пароль адміністратора");
-        dialog.setContentText("Пароль:");
+        // 1. Згенерувати 6-значний код
+        String correctCode = String.valueOf((int) (Math.random() * 900000) + 100000);
 
-        Optional<String> result = dialog.showAndWait();
-        if (result.isPresent()) {
-            if ("1111".equals(result.get())) {
-                App.showAdminView();
+        // Повідомити користувача, що код надсилається
+        Alert sendingAlert = new Alert(Alert.AlertType.INFORMATION);
+        sendingAlert.setTitle("Вхід в адмін-панель");
+        sendingAlert.setHeaderText("Надсилання одноразового коду");
+        sendingAlert.setContentText(
+                "Надсилаємо код підтвердження на email c.povkhanych.nazarii@student.uzhnu.edu.ua...\nБудь ласка, зачекайте.");
+
+        // Відображаємо діалог без очікування (асинхронно)
+        sendingAlert.show();
+
+        // 2. Надіслати email в окремому потоці, щоб не фрізити UI
+        javafx.concurrent.Task<Void> mailTask =
+                new javafx.concurrent.Task<>() {
+                    @Override
+                    protected Void call() throws Exception {
+                        com.mysuperproject.infrastructure.email.SmtpEmailSender sender =
+                                new com.mysuperproject.infrastructure.email.SmtpEmailSender();
+                        sender.sendEmail(
+                                "c.povkhanych.nazarii@student.uzhnu.edu.ua",
+                                "Код входу адміністратора Smart-тренажера",
+                                "Привіт!\n\nВаш одноразовий код для входу в адмін-панель Smart-тренажера: "
+                                        + correctCode
+                                        + "\n\nЯкщо ви не робили цього запиту, проігноруйте цей лист.");
+                        return null;
+                    }
+                };
+
+        mailTask.setOnSucceeded(
+                e -> {
+                    sendingAlert.close();
+                    // 3. Запитати код у користувача
+                    TextInputDialog dialog = new TextInputDialog();
+                    dialog.setTitle("Вхід в адмін-панель");
+                    dialog.setHeaderText("Код підтвердження надіслано!");
+                    dialog.setContentText(
+                            "Введіть 6-значний код з email c.povkhanych.nazarii@student.uzhnu.edu.ua:");
+
+                    Optional<String> result = dialog.showAndWait();
+                    if (result.isPresent()) {
+                        if (correctCode.equals(result.get().trim())) {
+                            App.showAdminView();
+                        } else {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Помилка");
+                            alert.setHeaderText(null);
+                            alert.setContentText("Невірний код підтвердження!");
+                            alert.showAndWait();
+                        }
+                    }
+                });
+
+        mailTask.setOnFailed(
+                e -> {
+                    sendingAlert.close();
+                    Throwable ex = mailTask.getException();
+                    if (ex != null) ex.printStackTrace();
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Помилка надсилання");
+                    alert.setHeaderText(null);
+                    alert.setContentText(
+                            "Не вдалося надіслати email. Перевірте з'єднання з інтернетом або налаштування SMTP у файлі конфігурації.");
+                    alert.showAndWait();
+                });
+
+        new Thread(mailTask).start();
+    }
+}
+
+
+
+Main.java
+--------------------------------------------------
+package com.mysuperproject;
+
+import com.mysuperproject.dao.UserDao;
+import com.mysuperproject.entity.Achievement;
+import com.mysuperproject.entity.Game;
+import com.mysuperproject.entity.GameSession;
+import com.mysuperproject.entity.User;
+import com.mysuperproject.infrastructure.email.SmtpEmailSender;
+import com.mysuperproject.infrastructure.security.BcryptPasswordHasher;
+import com.mysuperproject.service.GameService;
+import com.mysuperproject.service.UserService;
+import com.mysuperproject.service.port.EmailSender;
+import com.mysuperproject.service.port.PasswordHasher;
+import com.mysuperproject.util.ConnectionPool;
+import com.mysuperproject.util.PropertiesUtil;
+import java.util.List;
+import java.util.Optional;
+import java.util.Scanner;
+import org.flywaydb.core.Flyway;
+
+public class Main {
+    private static final Scanner scanner = new Scanner(System.in);
+
+    private static final UserDao userDao = new UserDao();
+    private static final PasswordHasher passwordHasher = new BcryptPasswordHasher();
+    private static final EmailSender emailSender = new SmtpEmailSender();
+    private static final UserService userService =
+            new UserService(userDao, passwordHasher, emailSender);
+    private static final GameService gameService = new GameService();
+    private static User currentUser = null;
+
+    public static void main(String[] args) {
+        initDatabase();
+
+        System.out.println(
+                "Вітаємо у застосунку 'Smart-тренажер правопису з системою моніторингу прогресу'!");
+
+        boolean running = true;
+        while (running) {
+            if (currentUser == null) {
+                running = showMainMenu();
             } else {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Помилка");
-                alert.setHeaderText(null);
-                alert.setContentText("Невірний пароль адміністратора!");
-                alert.showAndWait();
+                showUserMenu();
             }
         }
+
+        ConnectionPool.closePool();
+        System.out.println("Дякуємо за використання! До побачення.");
+    }
+
+    private static void initDatabase() {
+        System.out.println("Ініціалізація бази даних...");
+        Flyway flyway =
+                Flyway.configure()
+                        .dataSource(
+                                PropertiesUtil.get("db.url"),
+                                PropertiesUtil.get("db.username"),
+                                PropertiesUtil.get("db.password"))
+                        .load();
+        flyway.migrate();
+        System.out.println("База даних готова до роботи!\n");
+    }
+
+    private static boolean showMainMenu() {
+        System.out.println("\n--- Головне Меню ---");
+        System.out.println("1. Увійти (Логін)");
+        System.out.println("2. Зареєструватися");
+        System.out.println("3. Вийти з програми");
+        System.out.print("Оберіть опцію: ");
+
+        String choice = scanner.nextLine();
+        switch (choice) {
+            case "1":
+                login();
+                return true;
+            case "2":
+                register();
+                return true;
+            case "3":
+                return false;
+            default:
+                System.out.println("Невірна опція. Спробуйте ще.");
+                return true;
+        }
+    }
+
+    private static void login() {
+        System.out.print("Введіть ім'я користувача: ");
+        String username = scanner.nextLine();
+        System.out.print("Введіть пароль: ");
+        String password = scanner.nextLine();
+
+        Optional<User> userOpt = userService.login(username, password);
+        if (userOpt.isPresent()) {
+            currentUser = userOpt.get();
+            System.out.println("Успішний вхід! Вітаємо, " + currentUser.getUsername() + "!");
+        } else {
+            System.out.println("Помилка: Невірне ім'я користувача або пароль.");
+        }
+    }
+
+    private static void register() {
+        System.out.print("Введіть ім'я користувача: ");
+        String username = scanner.nextLine();
+        System.out.print("Введіть email: ");
+        String email = scanner.nextLine();
+        System.out.print("Введіть пароль: ");
+        String password = scanner.nextLine();
+
+        try {
+            currentUser = userService.register(username, email, password);
+            System.out.println("Реєстрація успішна! Вітаємо, " + currentUser.getUsername() + "!");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Помилка: " + e.getMessage());
+        }
+    }
+
+    private static void showUserMenu() {
+        System.out.println("\n--- Меню Студента (" + currentUser.getUsername() + ") ---");
+        System.out.println("1. Тренування: Апостроф у питомих українських словах");
+        System.out.println("2. Тренування: Апостроф у словах іншомовного походження");
+        System.out.println("3. Переглянути свою статистику та досягнення");
+        System.out.println("4. Вийти з акаунту");
+        System.out.print("Оберіть опцію: ");
+
+        String choice = scanner.nextLine();
+        switch (choice) {
+            case "1":
+                playSpellingGame(1);
+                break;
+            case "2":
+                playSpellingGame(2);
+                break;
+            case "3":
+                showStats();
+                break;
+            case "4":
+                currentUser = null;
+                System.out.println("Ви вийшли з акаунту.");
+                break;
+            default:
+                System.out.println("Невірна опція. Спробуйте ще.");
+        }
+    }
+
+    private static void playSpellingGame(int gameId) {
+        Game game = gameService.getGameById(gameId);
+        if (game == null) {
+            System.out.println("Вправу не знайдено в базі!");
+            return;
+        }
+
+        System.out.println("\n--- Вправа: " + game.getTitle() + " ---");
+        List<com.mysuperproject.entity.Question> questions =
+                gameService.getQuestionsForGame(gameId);
+        if (questions.isEmpty()) {
+            System.out.println("Помилка: Завдання для цієї вправи відсутні в базі!");
+            return;
+        }
+
+        int correctCount = 0;
+        int totalQuestions = questions.size();
+
+        for (int i = 0; i < totalQuestions; i++) {
+            com.mysuperproject.entity.Question q = questions.get(i);
+            System.out.println("\nЗавдання " + (i + 1) + " з " + totalQuestions + ":");
+            System.out.println(q.getQuestionText());
+            System.out.print("Ваша відповідь (слово повністю або пропущений символ): ");
+            String answer = scanner.nextLine().trim();
+
+            if (isAnswerCorrect(answer, q.getCorrectAnswer())) {
+                System.out.println("Правильно! (+)");
+                correctCount++;
+            } else {
+                String displayCorrect = q.getCorrectAnswer();
+                if (displayCorrect.contains("|")) {
+                    displayCorrect = displayCorrect.split("\\|")[0];
+                }
+                System.out.println("Неправильно. Правильна відповідь: " + displayCorrect);
+            }
+        }
+
+        int score = (int) Math.round((double) correctCount / totalQuestions * game.getMaxScore());
+        int mistakes = totalQuestions - correctCount;
+
+        gameService.playGame(currentUser, game, score, mistakes);
+        System.out.println("\nРезультати вправи збережено!");
+        System.out.printf(
+                "Ваш бал: %d / %d. Кількість помилок: %d.%n", score, game.getMaxScore(), mistakes);
+    }
+
+    private static boolean isAnswerCorrect(String userAnswer, String expectedAnswer) {
+        userAnswer = normalizeAnswer(userAnswer);
+        expectedAnswer = normalizeAnswer(expectedAnswer);
+
+        if (expectedAnswer.contains("|")) {
+            String[] parts = expectedAnswer.split("\\|");
+            for (String part : parts) {
+                if (userAnswer.equals(part.trim())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return userAnswer.equals(expectedAnswer);
+    }
+
+    private static String normalizeAnswer(String text) {
+        if (text == null) return "";
+        return text.trim().toLowerCase().replace("`", "'").replace("’", "'");
+    }
+
+    private static void showStats() {
+        System.out.println("\n--- Ваша статистика тренувань ---");
+        List<GameSession> sessions = gameService.getUserSessions(currentUser);
+        if (sessions.isEmpty()) {
+            System.out.println("Ви ще не виконали жодної вправи.");
+        } else {
+            System.out.println("Сесії тренувань:");
+            for (GameSession s : sessions) {
+                Game g = gameService.getGameById(s.getGameId());
+                String gameTitle = (g != null) ? g.getTitle() : "Невідома вправа";
+                System.out.printf(
+                        "- Вправа: %s | Бали: %d | Помилки: %d | Дата: %s%n",
+                        gameTitle, s.getScore(), s.getMistakesCount(), s.getCompletedAt());
+            }
+        }
+
+        System.out.println("\n--- Ваші досягнення ---");
+        List<Achievement> achievements = gameService.getUserAchievements(currentUser);
+        if (achievements.isEmpty()) {
+            System.out.println("У вас ще немає досягнень.");
+        } else {
+            for (Achievement a : achievements) {
+                System.out.println("- " + a.getName() + " (" + a.getRequirementDesc() + ")");
+            }
+        }
+    }
+}
+
+
+
+PasswordHasher.java
+--------------------------------------------------
+package com.mysuperproject.service.port;
+
+public interface PasswordHasher {
+    String hash(String rawPassword);
+
+    boolean verify(String rawPassword, String hashedPassword);
+}
+
+
+
+PropertiesUtil.java
+--------------------------------------------------
+package com.mysuperproject.util;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
+public final class PropertiesUtil {
+
+    private static final Properties PROPERTIES = new Properties();
+
+    static {
+        loadProperties();
+    }
+
+    private PropertiesUtil() {}
+
+    public static String get(String key) {
+        return PROPERTIES.getProperty(key);
+    }
+
+    public static void set(String key, String value) {
+        PROPERTIES.setProperty(key, value);
+    }
+
+    private static void loadProperties() {
+        try (InputStream inputStream =
+                PropertiesUtil.class
+                        .getClassLoader()
+                        .getResourceAsStream("application.properties")) {
+            if (inputStream != null) {
+                PROPERTIES.load(inputStream);
+            } else {
+                System.err.println("Warning: application.properties not found in classpath.");
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load application.properties", e);
+        }
+    }
+}
+
+
+
+Question.java
+--------------------------------------------------
+package com.mysuperproject.entity;
+
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "questions")
+public class Question {
+    @Id(name = "id")
+    private Integer id;
+
+    @Column(name = "game_id")
+    private Integer gameId;
+
+    @Column(name = "question_text")
+    private String questionText;
+
+    @Column(name = "correct_answer")
+    private String correctAnswer;
+}
+
+
+
+QuestionDao.java
+--------------------------------------------------
+package com.mysuperproject.dao;
+
+import com.mysuperproject.entity.Question;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class QuestionDao extends GenericDao<Question, Integer> {
+    public QuestionDao() {
+        super(Question.class);
+    }
+
+    public List<Question> findByGameId(int gameId) {
+        return findAll().stream().filter(q -> q.getGameId() == gameId).collect(Collectors.toList());
+    }
+}
+
+
+
+QuestionViewModel.java
+--------------------------------------------------
+package com.mysuperproject.viewmodel;
+
+import com.mysuperproject.entity.Game;
+import com.mysuperproject.entity.Question;
+import com.mysuperproject.service.GameService;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+public class QuestionViewModel {
+    private final GameService gameService = new GameService();
+    private final ObservableList<Question> questions = FXCollections.observableArrayList();
+    private final ObservableList<Game> games = FXCollections.observableArrayList();
+
+    public QuestionViewModel() {
+        refreshGames();
+    }
+
+    public void refreshGames() {
+        games.setAll(gameService.getAllGames());
+    }
+
+    public void loadQuestionsForGame(int gameId) {
+        questions.setAll(gameService.getQuestionsForGame(gameId));
+    }
+
+    public void addQuestion(int gameId, String text, String answer) {
+        gameService.addQuestion(gameId, text, answer);
+        loadQuestionsForGame(gameId);
+    }
+
+    public void deleteQuestion(Question q) {
+        gameService.deleteQuestion(q.getId());
+        loadQuestionsForGame(q.getGameId());
+    }
+
+    public ObservableList<Question> getQuestions() {
+        return questions;
+    }
+
+    public ObservableList<Game> getGames() {
+        return games;
     }
 }
 
@@ -1914,6 +2127,72 @@ public class RegisterView {
 
 
 
+SmtpEmailSender.java
+--------------------------------------------------
+package com.mysuperproject.infrastructure.email;
+
+import com.mysuperproject.service.port.EmailSender;
+import com.mysuperproject.util.PropertiesUtil;
+import java.util.Properties;
+import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+
+public class SmtpEmailSender implements EmailSender {
+
+    private final String username;
+    private final String password;
+    private final String fromEmail;
+    private final Properties props;
+
+    public SmtpEmailSender() {
+        // Зчитуємо конфігурацію з application.properties
+        this.username = PropertiesUtil.get("mail.username");
+        this.password = PropertiesUtil.get("mail.password");
+        this.fromEmail = PropertiesUtil.get("mail.from");
+
+        props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true"); // Важливо для Mailtrap та інших сервісів
+        props.put("mail.smtp.host", PropertiesUtil.get("mail.host"));
+        props.put("mail.smtp.port", PropertiesUtil.get("mail.port"));
+    }
+
+    @Override
+    public void sendEmail(String to, String subject, String text) {
+        Session session =
+                Session.getInstance(
+                        props,
+                        new Authenticator() {
+                            @Override
+                            protected PasswordAuthentication getPasswordAuthentication() {
+                                return new PasswordAuthentication(username, password);
+                            }
+                        });
+
+        try {
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(fromEmail));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
+            message.setSubject(subject);
+            message.setText(text);
+
+            Transport.send(message);
+            System.out.println("Email sent successfully to " + to);
+
+        } catch (AuthenticationFailedException e) {
+            System.err.println(
+                    "Authentication failed for email sender. Please check your mail.username and mail.password in application.properties.");
+        } catch (MessagingException e) {
+            System.err.println("Failed to send email to " + to);
+            e.printStackTrace();
+            throw new RuntimeException("Помилка при надсиланні email: " + e.getMessage(), e);
+        }
+    }
+}
+
+
+
 StudentDashboardView.java
 --------------------------------------------------
 package com.mysuperproject.view;
@@ -1929,10 +2208,7 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -1948,6 +2224,12 @@ public class StudentDashboardView {
 
     private TableView<Achievement> achievementsTable;
     private TableView<GameSession> sessionsTable;
+    private TableView<GameService.LeaderboardEntry> leaderboardTable;
+
+    private Button reviewBtn;
+    private Button certBtn;
+
+    private static boolean isDarkMode = true;
 
     public StudentDashboardView(User user) {
         this.user = user;
@@ -1964,35 +2246,60 @@ public class StudentDashboardView {
         javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        // Theme Toggle Button
+        Button themeBtn = new Button("☀️ / 🌙");
+        themeBtn.getStyleClass().add("button");
+        themeBtn.setOnAction(e -> toggleTheme((Stage) root.getScene().getWindow()));
+
         Button logoutBtn = new Button("Вийти");
         logoutBtn.getStyleClass().add("button-danger");
         logoutBtn.setOnAction(e -> App.showLoginView());
-        header.getChildren().addAll(welcomeLabel, spacer, logoutBtn);
+        header.getChildren().addAll(welcomeLabel, spacer, themeBtn, logoutBtn);
 
         // Main Content Area
         HBox mainContent = new HBox(30);
 
-        // Left Column: Games
+        // Left Column: Games and controls
         VBox gamesBox = new VBox(15);
-        gamesBox.setPrefWidth(250);
+        gamesBox.setPrefWidth(280);
         gamesBox.getStyleClass().add("card");
 
-        Label instructionLabel = new Label("Оберіть предмет:");
+        Label instructionLabel = new Label("Оберіть вправу:");
         instructionLabel.getStyleClass().add("subtitle-label");
+        gamesBox.getChildren().add(instructionLabel);
 
-        Button mathButton = new Button("Математика: Дроби");
-        mathButton.getStyleClass().add("button-primary");
-        mathButton.setMaxWidth(Double.MAX_VALUE);
-        mathButton.setOnAction(e -> startGame(1, "Математика: Дроби"));
+        java.util.List<com.mysuperproject.entity.Game> allGames = gameService.getAllGames();
+        for (com.mysuperproject.entity.Game g : allGames) {
+            Button gameButton = new Button(g.getTitle());
+            gameButton.getStyleClass().add("button-primary");
+            gameButton.setMaxWidth(Double.MAX_VALUE);
+            gameButton.setOnAction(e -> startGame(g.getId(), g.getTitle()));
+            gamesBox.getChildren().add(gameButton);
+        }
 
-        Button historyButton = new Button("Історія України");
-        historyButton.getStyleClass().add("button-primary");
-        historyButton.setMaxWidth(Double.MAX_VALUE);
-        historyButton.setOnAction(e -> startGame(3, "Історія України"));
+        // Mistake Review Button
+        reviewBtn = new Button("Робота над помилками");
+        reviewBtn.getStyleClass().add("button-success");
+        reviewBtn.setMaxWidth(Double.MAX_VALUE);
+        reviewBtn.setOnAction(e -> startGame(-1, "Робота над помилками"));
+        gamesBox.getChildren().add(reviewBtn);
 
-        gamesBox.getChildren().addAll(instructionLabel, mathButton, historyButton);
+        // Spelling Rules Reference Book
+        Button rulesBtn = new Button("Довідник правил");
+        rulesBtn.getStyleClass().add("button");
+        rulesBtn.setMaxWidth(Double.MAX_VALUE);
+        rulesBtn.setOnAction(e -> showRulesDialog());
+        gamesBox.getChildren().add(rulesBtn);
 
-        // Right Column: Stats
+        // Gold-styled Certificate Button
+        certBtn = new Button("🎓 Сертифікат грамотності");
+        certBtn.setStyle(
+                "-fx-background-color: linear-gradient(to right, #F59E0B, #D97706); -fx-text-fill: white; -fx-font-weight: bold;");
+        certBtn.setMaxWidth(Double.MAX_VALUE);
+        certBtn.setOnAction(e -> showCertificate());
+        gamesBox.getChildren().add(certBtn);
+
+        // Right Column: Stats and Tables
         VBox statsBox = new VBox(15);
         HBox.setHgrow(statsBox, Priority.ALWAYS);
 
@@ -2006,16 +2313,26 @@ public class StudentDashboardView {
         achNameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
         achNameCol.setPrefWidth(150);
         TableColumn<Achievement, String> achDescCol = new TableColumn<>("Опис");
-        achDescCol.setCellValueFactory(new PropertyValueFactory<>("description"));
+        achDescCol.setCellValueFactory(new PropertyValueFactory<>("requirementDesc"));
         achDescCol.setPrefWidth(250);
         achievementsTable.getColumns().addAll(achNameCol, achDescCol);
 
         // Sessions Table
-        Label sessionsLabel = new Label("Історія Ігор");
+        Label sessionsLabel = new Label("Історія тренувань");
         sessionsLabel.getStyleClass().add("subtitle-label");
 
         sessionsTable = new TableView<>();
         sessionsTable.setPrefHeight(200);
+
+        TableColumn<GameSession, String> gameTitleCol = new TableColumn<>("Вправа");
+        gameTitleCol.setCellValueFactory(
+                cellData -> {
+                    com.mysuperproject.entity.Game g =
+                            gameService.getGameById(cellData.getValue().getGameId());
+                    return new SimpleStringProperty(g != null ? g.getTitle() : "Невідомо");
+                });
+        gameTitleCol.setPrefWidth(200);
+
         TableColumn<GameSession, Integer> scoreCol = new TableColumn<>("Бали");
         scoreCol.setCellValueFactory(new PropertyValueFactory<>("score"));
         TableColumn<GameSession, Integer> mistakesCol = new TableColumn<>("Помилки");
@@ -2031,10 +2348,35 @@ public class StudentDashboardView {
                     return new SimpleStringProperty("");
                 });
         dateCol.setPrefWidth(150);
-        sessionsTable.getColumns().addAll(scoreCol, mistakesCol, dateCol);
+        sessionsTable.getColumns().addAll(gameTitleCol, scoreCol, mistakesCol, dateCol);
+
+        // Class Leaderboard Table
+        Label leaderboardLabel = new Label("Рейтинг лідерів класу");
+        leaderboardLabel.getStyleClass().add("subtitle-label");
+
+        leaderboardTable = new TableView<>();
+        leaderboardTable.setPrefHeight(150);
+
+        TableColumn<GameService.LeaderboardEntry, String> leaderUserCol =
+                new TableColumn<>("Студент");
+        leaderUserCol.setCellValueFactory(new PropertyValueFactory<>("username"));
+        leaderUserCol.setPrefWidth(200);
+
+        TableColumn<GameService.LeaderboardEntry, Integer> leaderScoreCol =
+                new TableColumn<>("Сумарний бал");
+        leaderScoreCol.setCellValueFactory(new PropertyValueFactory<>("totalScore"));
+        leaderScoreCol.setPrefWidth(150);
+
+        leaderboardTable.getColumns().addAll(leaderUserCol, leaderScoreCol);
 
         statsBox.getChildren()
-                .addAll(achievementsLabel, achievementsTable, sessionsLabel, sessionsTable);
+                .addAll(
+                        achievementsLabel,
+                        achievementsTable,
+                        sessionsLabel,
+                        sessionsTable,
+                        leaderboardLabel,
+                        leaderboardTable);
 
         mainContent.getChildren().addAll(gamesBox, statsBox);
         VBox.setVgrow(mainContent, Priority.ALWAYS);
@@ -2050,6 +2392,198 @@ public class StudentDashboardView {
                 FXCollections.observableArrayList(gameService.getUserAchievements(user)));
         sessionsTable.setItems(
                 FXCollections.observableArrayList(gameService.getUserSessions(user)));
+        leaderboardTable.setItems(
+                FXCollections.observableArrayList(gameService.getClassLeaderboard()));
+
+        // Update Mistake Review button text and state
+        int mistakesSize = gameService.getUserMistakeQuestions(user).size();
+        reviewBtn.setText("Робота над помилками (" + mistakesSize + ")");
+        if (mistakesSize == 0) {
+            reviewBtn.setDisable(true);
+        } else {
+            reviewBtn.setDisable(false);
+        }
+
+        // Update Certificate button state
+        int achievementsSize = gameService.getUserAchievements(user).size();
+        if (achievementsSize < 8) {
+            certBtn.setDisable(true);
+            certBtn.setTooltip(
+                    new Tooltip("Отримайте всі 8 досягнень, щоб розблокувати сертифікат!"));
+        } else {
+            certBtn.setDisable(false);
+            certBtn.setTooltip(
+                    new Tooltip(
+                            "Ви отримали всі досягнення! Натисніть для перегляду сертифікату."));
+        }
+    }
+
+    private void toggleTheme(Stage stage) {
+        isDarkMode = !isDarkMode;
+        applyTheme(stage.getScene());
+    }
+
+    private void applyTheme(Scene scene) {
+        scene.getStylesheets().clear();
+        String stylePath = isDarkMode ? "/styles.css" : "/styles-light.css";
+        scene.getStylesheets().add(getClass().getResource(stylePath).toExternalForm());
+    }
+
+    private void showRulesDialog() {
+        Stage stage = new Stage();
+        stage.setTitle("Довідник правил українського правопису");
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox box = new VBox(15);
+        box.setPadding(new Insets(20));
+        box.getStyleClass().add("card");
+
+        Label title = new Label("Довідник правил правопису");
+        title.getStyleClass().add("title-label");
+
+        ScrollPane sp = new ScrollPane();
+        sp.setFitToWidth(true);
+        sp.setPrefHeight(450);
+
+        VBox rulesContent = new VBox(12);
+        rulesContent.setPadding(new Insets(10));
+
+        rulesContent
+                .getChildren()
+                .addAll(
+                        createRuleCard(
+                                "1. Апостроф",
+                                "• Пишеться після б, п, в, м, ф перед я, ю, є, ї: б'ю, п'ять, в'язати, м'яч, торф'яний.\n"
+                                        + "• Пишеться після р перед я, ю, є, ї (якщо [р] твердий): бур'ян, пір'я, подвір'я.\n"
+                                        + "• НЕ пишеться перед я, ю, є, ї, коли перед б, п, в, м, ф є інший приголосний (крім р): мавпячий, духмяний, свято.\n"
+                                        + "• В іншомовних словах пишеться після приголосних перед я, ю, є, ї: комп'ютер, бар'єр, п'єдестал (але: бюджет, мюзикл)."),
+                        createRuleCard(
+                                "2. Подвоєння літер",
+                                "• Подвоєння н та нн відбувається на стику морфем (корінь на н + суфікс н): сон -> сонний, день -> денний.\n"
+                                        + "• Подовження приголосних д, т, з, с, ц, л, н, ж, ч, ш відбувається в іменниках середнього роду: знання, життя, обличчя, гілля.\n"
+                                        + "• НЕ відбувається подвоєння у деяких відмінкових формах іменників жіночого роду: радістю, молодістю."),
+                        createRuleCard(
+                                "3. М'який знак",
+                                "• Пишеться після д, т, з, с, ц, л, н в кінці слова чи складу: день, тінь, донька, тільки.\n"
+                                        + "• НЕ пишеться після р в кінці складу (крім Горький): лікар, буквар.\n"
+                                        + "• НЕ пишеться після н перед ж, ч, ш, щ та суфіксами -ств-, -ськ-: менший, кінський."),
+                        createRuleCard(
+                                "4. Спрощення приголосних",
+                                "• У групах приголосних -ждн-, -здн-, -стн-, -стл- випадають середні звуки: тиждень -> тижневий, честь -> чесний, область -> обласний.\n"
+                                        + "• Винятки (спрощення НЕ відбувається): кістлявий, пестливий, хвастливий, хваснути, випускний."));
+
+        sp.setContent(rulesContent);
+
+        Button closeBtn = new Button("Закрити довідник");
+        closeBtn.getStyleClass().add("button-primary");
+        closeBtn.setOnAction(e -> stage.close());
+
+        box.getChildren().addAll(title, sp, closeBtn);
+
+        Scene scene = new Scene(box, 550, 600);
+        applyTheme(scene);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    private VBox createRuleCard(String ruleTitle, String ruleBody) {
+        VBox card = new VBox(8);
+        if (isDarkMode) {
+            card.setStyle(
+                    "-fx-background-color: #1E293B; -fx-padding: 15px; -fx-background-radius: 8px; -fx-border-color: #334155; -fx-border-radius: 8px;");
+        } else {
+            card.setStyle(
+                    "-fx-background-color: #F1F5F9; -fx-padding: 15px; -fx-background-radius: 8px; -fx-border-color: #E2E8F0; -fx-border-radius: 8px;");
+        }
+
+        Label title = new Label(ruleTitle);
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #6366F1;");
+
+        Label body = new Label(ruleBody);
+        body.setWrapText(true);
+        if (isDarkMode) {
+            body.setStyle("-fx-text-fill: #E2E8F0; -fx-font-size: 13px; -fx-line-spacing: 1.4;");
+        } else {
+            body.setStyle("-fx-text-fill: #334155; -fx-font-size: 13px; -fx-line-spacing: 1.4;");
+        }
+
+        card.getChildren().addAll(title, body);
+        return card;
+    }
+
+    private void showCertificate() {
+        Stage stage = new Stage();
+        stage.setTitle("Сертифікат Грамотності");
+        stage.initModality(Modality.APPLICATION_MODAL);
+
+        VBox card = new VBox(15);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(30));
+        card.setStyle(
+                "-fx-background-color: #0F172A; "
+                        + "-fx-border-color: #F59E0B; "
+                        + "-fx-border-width: 6px; "
+                        + "-fx-border-radius: 15px; "
+                        + "-fx-background-radius: 15px; "
+                        + "-fx-effect: dropshadow(three-pass-box, rgba(245, 158, 11, 0.4), 20, 0, 0, 0);");
+
+        Label badge = new Label("🎓");
+        badge.setStyle("-fx-font-size: 60px;");
+
+        Label certTitle = new Label("СЕРТИФІКАТ ГРАМОТНОСТІ");
+        certTitle.setStyle(
+                "-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #F59E0B; -fx-font-family: 'Times New Roman'; -fx-letter-spacing: 2px;");
+
+        Label certSubtitle = new Label("Цей сертифікат засвідчує, що");
+        certSubtitle.setStyle(
+                "-fx-font-size: 14px; -fx-text-fill: #94A3B8; -fx-font-style: italic;");
+
+        Label studentName = new Label(user.getUsername().toUpperCase());
+        studentName.setStyle(
+                "-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF; -fx-border-color: transparent transparent #334155 transparent; -fx-border-width: 0 0 2px 0; -fx-padding: 0 0 10 0; -fx-font-family: 'Times New Roman';");
+
+        Label certText =
+                new Label(
+                        "успішно пройшов повний курс практичних вправ та тренувань у системі 'Smart-тренажер правопису', здобув усі 8 унікальних мовних досягнень та продемонстрував видатні знання з української орфографії.");
+        certText.setWrapText(true);
+        certText.setAlignment(Pos.CENTER);
+        certText.setStyle(
+                "-fx-text-fill: #E2E8F0; -fx-font-size: 13px; -fx-line-spacing: 1.5; -fx-alignment: center; -fx-max-width: 400px;");
+
+        HBox sigBox = new HBox(50);
+        sigBox.setAlignment(Pos.CENTER);
+        sigBox.setPadding(new Insets(20, 0, 10, 0));
+
+        VBox sig1 = new VBox(4);
+        sig1.setAlignment(Pos.CENTER);
+        Label sigLine1 = new Label("Smart-Тренажер");
+        sigLine1.setStyle("-fx-text-fill: #F59E0B; -fx-font-size: 12px; -fx-font-weight: bold;");
+        Label sigTitle1 = new Label("Автоматична верифікація");
+        sigTitle1.setStyle("-fx-text-fill: #64748B; -fx-font-size: 10px;");
+        sig1.getChildren().addAll(sigLine1, sigTitle1);
+
+        VBox sig2 = new VBox(4);
+        sig2.setAlignment(Pos.CENTER);
+        Label sigLine2 = new Label("Nazarii Povkhanych");
+        sigLine2.setStyle(
+                "-fx-text-fill: #F59E0B; -fx-font-size: 12px; -fx-font-weight: bold; -fx-font-family: 'Monotype Corsiva', 'Georgia', serif;");
+        Label sigTitle2 = new Label("Розробник системи");
+        sigTitle2.setStyle("-fx-text-fill: #64748B; -fx-font-size: 10px;");
+        sig2.getChildren().addAll(sigLine2, sigTitle2);
+
+        sigBox.getChildren().addAll(sig1, sig2);
+
+        Button closeBtn = new Button("Закрити та зберегти");
+        closeBtn.setStyle(
+                "-fx-background-color: linear-gradient(to right, #F59E0B, #D97706); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8px; -fx-padding: 10 20;");
+        closeBtn.setOnAction(e -> stage.close());
+
+        card.getChildren()
+                .addAll(badge, certTitle, certSubtitle, studentName, certText, sigBox, closeBtn);
+
+        Scene scene = new Scene(card, 500, 550);
+        stage.setScene(scene);
+        stage.show();
     }
 
     public VBox getView() {
@@ -2062,7 +2596,7 @@ public class StudentDashboardView {
         stage.setTitle("Гра: " + gameTitle);
         stage.initModality(Modality.APPLICATION_MODAL);
         Scene scene = new Scene(gamePlayView.getView(), 600, 700);
-        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        applyTheme(scene);
         stage.setScene(scene);
         stage.showAndWait();
 
@@ -2073,49 +2607,89 @@ public class StudentDashboardView {
 
 
 
-QuestionViewModel.java
+Subject.java
 --------------------------------------------------
-package com.mysuperproject.viewmodel;
+package com.mysuperproject.entity;
 
-import com.mysuperproject.entity.Game;
-import com.mysuperproject.entity.Question;
-import com.mysuperproject.service.GameService;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public class QuestionViewModel {
-    private final GameService gameService = new GameService();
-    private final ObservableList<Question> questions = FXCollections.observableArrayList();
-    private final ObservableList<Game> games = FXCollections.observableArrayList();
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "subjects")
+public class Subject {
+    @Id(name = "id")
+    private Integer id;
 
-    public QuestionViewModel() {
-        refreshGames();
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "description")
+    private String description;
+}
+
+
+
+SubjectDao.java
+--------------------------------------------------
+package com.mysuperproject.dao;
+
+import com.mysuperproject.entity.Subject;
+
+public class SubjectDao extends GenericDao<Subject, Integer> {
+    public SubjectDao() {
+        super(Subject.class);
+    }
+}
+
+
+
+SubjectService.java
+--------------------------------------------------
+package com.mysuperproject.service;
+
+import com.mysuperproject.dao.SubjectDao;
+import com.mysuperproject.entity.Subject;
+import java.util.List;
+import java.util.Optional;
+
+public class SubjectService {
+    private final SubjectDao subjectDao = new SubjectDao();
+
+    public Subject createSubject(String name, String description) {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Назва предмету не може бути порожньою");
+        }
+        Subject subject = new Subject();
+        subject.setName(name);
+        subject.setDescription(description);
+        return subjectDao.save(subject);
     }
 
-    public void refreshGames() {
-        games.setAll(gameService.getAllGames());
+    public Optional<Subject> getSubjectById(int id) {
+        return subjectDao.findById(id);
     }
 
-    public void loadQuestionsForGame(int gameId) {
-        questions.setAll(gameService.getQuestionsForGame(gameId));
+    public List<Subject> getAllSubjects() {
+        return subjectDao.findAll();
     }
 
-    public void addQuestion(int gameId, String text, String answer) {
-        gameService.addQuestion(gameId, text, answer);
-        loadQuestionsForGame(gameId);
+    public void updateSubject(Subject subject) {
+        if (subject == null || subject.getId() == null) {
+            throw new IllegalArgumentException("Некоректні дані предмету для оновлення");
+        }
+        subjectDao.update(subject);
     }
 
-    public void deleteQuestion(Question q) {
-        gameService.deleteQuestion(q.getId());
-        loadQuestionsForGame(q.getGameId());
-    }
-
-    public ObservableList<Question> getQuestions() {
-        return questions;
-    }
-
-    public ObservableList<Game> getGames() {
-        return games;
+    public void deleteSubject(int id) {
+        subjectDao.delete(id);
     }
 }
 
@@ -2206,6 +2780,367 @@ public class SubjectViewModel {
 
 
 
+Table.java
+--------------------------------------------------
+package com.mysuperproject.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Table {
+    String name();
+}
+
+
+
+UnitOfWork.java
+--------------------------------------------------
+package com.mysuperproject.uow;
+
+import com.mysuperproject.util.ConnectionPool;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class UnitOfWork implements AutoCloseable {
+    private final Connection connection;
+    private final List<Runnable> newEntities = new ArrayList<>();
+    private final List<Runnable> dirtyEntities = new ArrayList<>();
+    private final List<Runnable> deletedEntities = new ArrayList<>();
+
+    public UnitOfWork() throws SQLException {
+        this.connection = ConnectionPool.get();
+        this.connection.setAutoCommit(false); // Start transaction
+    }
+
+    public Connection getConnection() {
+        return connection;
+    }
+
+    public void registerNew(Runnable insertAction) {
+        newEntities.add(insertAction);
+    }
+
+    public void registerDirty(Runnable updateAction) {
+        dirtyEntities.add(updateAction);
+    }
+
+    public void registerDeleted(Runnable deleteAction) {
+        deletedEntities.add(deleteAction);
+    }
+
+    public void commit() throws SQLException {
+        try {
+            for (Runnable action : newEntities) {
+                action.run();
+            }
+            for (Runnable action : dirtyEntities) {
+                action.run();
+            }
+            for (Runnable action : deletedEntities) {
+                action.run();
+            }
+            connection.commit();
+            clear();
+        } catch (Exception e) {
+            connection.rollback();
+            throw new SQLException("Transaction failed, rolled back", e);
+        }
+    }
+
+    public void rollback() {
+        try {
+            connection.rollback();
+            clear();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void clear() {
+        newEntities.clear();
+        dirtyEntities.clear();
+        deletedEntities.clear();
+    }
+
+    @Override
+    public void close() throws Exception {
+        try {
+            rollback(); // Safe rollback just in case commit wasn't called
+        } finally {
+            if (connection != null && !connection.isClosed()) {
+                connection.setAutoCommit(true);
+                connection.close(); // Return to pool
+            }
+        }
+    }
+}
+
+
+
+User.java
+--------------------------------------------------
+package com.mysuperproject.entity;
+
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "users")
+public class User {
+    @Id(name = "id")
+    private Integer id;
+
+    @Column(name = "username")
+    private String username;
+
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "password")
+    private String password;
+}
+
+
+
+UserDao.java
+--------------------------------------------------
+package com.mysuperproject.dao;
+
+import com.mysuperproject.entity.User;
+
+public class UserDao extends GenericDao<User, Integer> {
+    public UserDao() {
+        super(User.class);
+    }
+
+    public java.util.Optional<User> findByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+        try (java.sql.Connection connection = com.mysuperproject.util.ConnectionPool.get();
+                java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, username);
+            java.sql.ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return java.util.Optional.of(mapResultSetToEntity(resultSet));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return java.util.Optional.empty();
+    }
+}
+
+
+
+UserMistake.java
+--------------------------------------------------
+package com.mysuperproject.entity;
+
+import com.mysuperproject.annotation.Column;
+import com.mysuperproject.annotation.Id;
+import com.mysuperproject.annotation.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "user_mistakes")
+public class UserMistake {
+    @Id(name = "id")
+    private Integer id;
+
+    @Column(name = "user_id")
+    private Integer userId;
+
+    @Column(name = "question_id")
+    private Integer questionId;
+
+    @Column(name = "mistake_count")
+    private Integer mistakeCount;
+}
+
+
+
+UserMistakeDao.java
+--------------------------------------------------
+package com.mysuperproject.dao;
+
+import com.mysuperproject.entity.UserMistake;
+import com.mysuperproject.util.ConnectionPool;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+public class UserMistakeDao extends GenericDao<UserMistake, Integer> {
+    public UserMistakeDao() {
+        super(UserMistake.class);
+    }
+
+    public Optional<UserMistake> findByUserAndQuestion(int userId, int questionId) {
+        String sql = "SELECT * FROM user_mistakes WHERE user_id = ? AND question_id = ?";
+        try (Connection conn = ConnectionPool.get();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, questionId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return Optional.of(mapResultSetToEntity(rs));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Optional.empty();
+    }
+
+    public void incrementOrCreate(int userId, int questionId) {
+        Optional<UserMistake> existing = findByUserAndQuestion(userId, questionId);
+        if (existing.isPresent()) {
+            UserMistake um = existing.get();
+            um.setMistakeCount(um.getMistakeCount() + 1);
+            update(um);
+        } else {
+            UserMistake um = new UserMistake();
+            um.setUserId(userId);
+            um.setQuestionId(questionId);
+            um.setMistakeCount(1);
+            save(um);
+        }
+    }
+
+    public void deleteByUserAndQuestion(int userId, int questionId) {
+        String sql = "DELETE FROM user_mistakes WHERE user_id = ? AND question_id = ?";
+        try (Connection conn = ConnectionPool.get();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, questionId);
+            stmt.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<UserMistake> findByUserId(int userId) {
+        List<UserMistake> result = new ArrayList<>();
+        String sql = "SELECT * FROM user_mistakes WHERE user_id = ?";
+        try (Connection conn = ConnectionPool.get();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                result.add(mapResultSetToEntity(rs));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+}
+
+
+
+UserService.java
+--------------------------------------------------
+package com.mysuperproject.service;
+
+import com.mysuperproject.dao.UserDao;
+import com.mysuperproject.entity.User;
+import com.mysuperproject.service.port.EmailSender;
+import com.mysuperproject.service.port.PasswordHasher;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+public class UserService {
+    private final UserDao userDao;
+    private final PasswordHasher passwordHasher;
+    private final EmailSender emailSender;
+
+    public UserService(UserDao userDao, PasswordHasher passwordHasher, EmailSender emailSender) {
+        this.userDao = userDao;
+        this.passwordHasher = passwordHasher;
+        this.emailSender = emailSender;
+    }
+
+    public void checkUserExists(String username) {
+        if (userDao.findByUsername(username).isPresent()) {
+            throw new IllegalArgumentException("Користувач з таким іменем вже існує!");
+        }
+    }
+
+    public String sendVerificationCode(String email, String username) {
+        String verificationCode = UUID.randomUUID().toString().substring(0, 6);
+        String subject = "Код підтвердження MySuperProject";
+        String text =
+                String.format(
+                        "Привіт, %s!\n\nВаш код підтвердження для реєстрації: %s\n\nНікому не повідомляйте цей код.",
+                        username, verificationCode);
+
+        emailSender.sendEmail(email, subject, text);
+        return verificationCode;
+    }
+
+    public User register(String username, String email, String rawPassword) {
+        checkUserExists(username);
+
+        User newUser = new User();
+        newUser.setUsername(username);
+        newUser.setEmail(email);
+
+        // Хешуємо пароль перед збереженням
+        String hashedPassword = passwordHasher.hash(rawPassword);
+        newUser.setPassword(hashedPassword);
+        newUser.setCreatedAt(LocalDateTime.now());
+
+        return userDao.save(newUser);
+    }
+
+    public Optional<User> login(String username, String rawPassword) {
+        Optional<User> userOpt = userDao.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            // Перевіряємо хеш пароля
+            if (passwordHasher.verify(rawPassword, user.getPassword())) {
+                return Optional.of(user);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public java.util.List<User> getAllUsers() {
+        return userDao.findAll();
+    }
+
+    public void deleteUser(int id) {
+        userDao.delete(id);
+    }
+}
+
+
+
 UserViewModel.java
 --------------------------------------------------
 package com.mysuperproject.viewmodel;
@@ -2255,861 +3190,6 @@ public class UserViewModel {
         return userService.login(username, password);
     }
 }
-
-
-
-App.java
---------------------------------------------------
-package com.mysuperproject;
-
-import com.mysuperproject.entity.User;
-import com.mysuperproject.util.ConnectionPool;
-import com.mysuperproject.util.PropertiesUtil;
-import com.mysuperproject.view.AdminView;
-import com.mysuperproject.view.LoginView;
-import com.mysuperproject.view.StudentDashboardView;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-import org.flywaydb.core.Flyway;
-
-public class App extends Application {
-
-    private static Stage primaryStage;
-
-    @Override
-    public void init() throws Exception {
-        super.init();
-        initDatabase();
-    }
-
-    @Override
-    public void start(Stage stage) {
-        primaryStage = stage;
-        primaryStage.setTitle("Student Progress Tracking (MVVM)");
-        showLoginView();
-        primaryStage.show();
-    }
-
-    public static void showLoginView() {
-        LoginView loginView = new LoginView();
-        Scene scene = new Scene(loginView.getView(), 400, 300);
-        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
-        primaryStage.setScene(scene);
-    }
-
-    public static void showAdminView() {
-        AdminView adminView = new AdminView();
-        Scene scene = new Scene(adminView.getView(), 800, 600);
-        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
-        primaryStage.setScene(scene);
-    }
-
-    public static void showStudentDashboard(User user) {
-        StudentDashboardView dashboardView = new StudentDashboardView(user);
-        Scene scene = new Scene(dashboardView.getView(), 800, 600);
-        scene.getStylesheets().add(App.class.getResource("/styles.css").toExternalForm());
-        primaryStage.setScene(scene);
-    }
-
-    @Override
-    public void stop() throws Exception {
-        ConnectionPool.closePool();
-        super.stop();
-    }
-
-    private void initDatabase() {
-        System.out.println("Ініціалізація бази даних...");
-        Flyway flyway =
-                Flyway.configure()
-                        .dataSource(
-                                PropertiesUtil.get("db.url"),
-                                PropertiesUtil.get("db.username"),
-                                PropertiesUtil.get("db.password"))
-                        .load();
-        flyway.migrate();
-        System.out.println("База даних готова до роботи!\n");
-    }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
-}
-
-
-
-Launcher.java
---------------------------------------------------
-package com.mysuperproject;
-
-public class Launcher {
-    public static void main(String[] args) {
-        App.main(args);
-    }
-}
-
-
-
-Main.java
---------------------------------------------------
-package com.mysuperproject;
-
-import com.mysuperproject.dao.UserDao;
-import com.mysuperproject.entity.Achievement;
-import com.mysuperproject.entity.Game;
-import com.mysuperproject.entity.GameSession;
-import com.mysuperproject.entity.User;
-import com.mysuperproject.infrastructure.email.SmtpEmailSender;
-import com.mysuperproject.infrastructure.security.BcryptPasswordHasher;
-import com.mysuperproject.service.GameService;
-import com.mysuperproject.service.UserService;
-import com.mysuperproject.service.port.EmailSender;
-import com.mysuperproject.service.port.PasswordHasher;
-import com.mysuperproject.util.ConnectionPool;
-import com.mysuperproject.util.PropertiesUtil;
-import java.util.List;
-import java.util.Optional;
-import java.util.Scanner;
-import org.flywaydb.core.Flyway;
-
-public class Main {
-    private static final Scanner scanner = new Scanner(System.in);
-
-    private static final UserDao userDao = new UserDao();
-    private static final PasswordHasher passwordHasher = new BcryptPasswordHasher();
-    private static final EmailSender emailSender = new SmtpEmailSender();
-    private static final UserService userService =
-            new UserService(userDao, passwordHasher, emailSender);
-    private static final GameService gameService = new GameService();
-    private static User currentUser = null;
-
-    public static void main(String[] args) {
-        initDatabase();
-
-        System.out.println("Вітаємо у застосунку 'Student Progress Tracking'!");
-
-        boolean running = true;
-        while (running) {
-            if (currentUser == null) {
-                running = showMainMenu();
-            } else {
-                showUserMenu();
-            }
-        }
-
-        ConnectionPool.closePool();
-        System.out.println("Дякуємо за використання! До побачення.");
-    }
-
-    private static void initDatabase() {
-        System.out.println("Ініціалізація бази даних...");
-        Flyway flyway =
-                Flyway.configure()
-                        .dataSource(
-                                PropertiesUtil.get("db.url"),
-                                PropertiesUtil.get("db.username"),
-                                PropertiesUtil.get("db.password"))
-                        .load();
-        flyway.migrate();
-        System.out.println("База даних готова до роботи!\n");
-    }
-
-    private static boolean showMainMenu() {
-        System.out.println("\n--- Головне Меню ---");
-        System.out.println("1. Увійти (Логін)");
-        System.out.println("2. Зареєструватися");
-        System.out.println("3. Вийти з програми");
-        System.out.print("Оберіть опцію: ");
-
-        String choice = scanner.nextLine();
-        switch (choice) {
-            case "1":
-                login();
-                return true;
-            case "2":
-                register();
-                return true;
-            case "3":
-                return false;
-            default:
-                System.out.println("Невірна опція. Спробуйте ще.");
-                return true;
-        }
-    }
-
-    private static void login() {
-        System.out.print("Введіть ім'я користувача: ");
-        String username = scanner.nextLine();
-        System.out.print("Введіть пароль: ");
-        String password = scanner.nextLine();
-
-        Optional<User> userOpt = userService.login(username, password);
-        if (userOpt.isPresent()) {
-            currentUser = userOpt.get();
-            System.out.println("Успішний вхід! Вітаємо, " + currentUser.getUsername() + "!");
-        } else {
-            System.out.println("Помилка: Невірне ім'я користувача або пароль.");
-        }
-    }
-
-    private static void register() {
-        System.out.print("Введіть ім'я користувача: ");
-        String username = scanner.nextLine();
-        System.out.print("Введіть email: ");
-        String email = scanner.nextLine();
-        System.out.print("Введіть пароль: ");
-        String password = scanner.nextLine();
-
-        try {
-            currentUser = userService.register(username, email, password);
-            System.out.println("Реєстрація успішна! Вітаємо, " + currentUser.getUsername() + "!");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка: " + e.getMessage());
-        }
-    }
-
-    private static void showUserMenu() {
-        System.out.println("\n--- Меню Студента (" + currentUser.getUsername() + ") ---");
-        System.out.println("1. Зіграти в гру 'Математика: Дроби'");
-        System.out.println("2. Зіграти в гру 'Історія України'");
-        System.out.println("3. Переглянути свою статистику та досягнення");
-        System.out.println("4. Вийти з акаунту");
-        System.out.print("Оберіть опцію: ");
-
-        String choice = scanner.nextLine();
-        switch (choice) {
-            case "1":
-                playMathGame();
-                break;
-            case "2":
-                playHistoryGame();
-                break;
-            case "3":
-                showStats();
-                break;
-            case "4":
-                currentUser = null;
-                System.out.println("Ви вийшли з акаунту.");
-                break;
-            default:
-                System.out.println("Невірна опція. Спробуйте ще.");
-        }
-    }
-
-    private static void playMathGame() {
-        // ID гри 'Знайди спільний знаменник' = 1 (див. V2__Seed_data.sql)
-        Game game = gameService.getGameById(1);
-        if (game == null) {
-            System.out.println("Гру не знайдено в базі!");
-            return;
-        }
-
-        System.out.println("\nГра: " + game.getTitle());
-        System.out.println("Питання: Чому дорівнює 1/2 + 1/2? (Введіть число)");
-        System.out.print("Ваша відповідь: ");
-        String answer = scanner.nextLine();
-
-        int score = 0;
-        int mistakes = 1;
-        if ("1".equals(answer.trim())) {
-            System.out.println("Правильно!");
-            score = game.getMaxScore(); // 100 балів
-            mistakes = 0;
-        } else {
-            System.out.println("Неправильно. Правильна відповідь: 1");
-        }
-
-        gameService.playGame(currentUser, game, score, mistakes);
-        System.out.println("Результат збережено!");
-    }
-
-    private static void playHistoryGame() {
-        // ID гри 'Хронологія: УНР' = 3 (див. V2__Seed_data.sql)
-        Game game = gameService.getGameById(3);
-        if (game == null) {
-            System.out.println("Гру не знайдено в базі!");
-            return;
-        }
-
-        System.out.println("\nГра: " + game.getTitle());
-        System.out.println(
-                "Питання: В якому році була проголошена незалежність УНР? (Введіть рік)");
-        System.out.print("Ваша відповідь: ");
-        String answer = scanner.nextLine();
-
-        int score = 0;
-        int mistakes = 1;
-        if ("1918".equals(answer.trim())) {
-            System.out.println("Правильно!");
-            score = game.getMaxScore(); // 100 балів
-            mistakes = 0;
-        } else {
-            System.out.println("Неправильно. Правильна відповідь: 1918");
-        }
-
-        gameService.playGame(currentUser, game, score, mistakes);
-        System.out.println("Результат збережено!");
-    }
-
-    private static void showStats() {
-        System.out.println("\n--- Ваша статистика ---");
-        List<GameSession> sessions = gameService.getUserSessions(currentUser);
-        if (sessions.isEmpty()) {
-            System.out.println("Ви ще не зіграли жодної гри.");
-        } else {
-            System.out.println("Ігрові сесії:");
-            for (GameSession s : sessions) {
-                System.out.printf(
-                        "- Гра ID: %d | Бали: %d | Помилки: %d | Дата: %s%n",
-                        s.getGameId(), s.getScore(), s.getMistakesCount(), s.getCompletedAt());
-            }
-        }
-
-        System.out.println("\n--- Ваші досягнення ---");
-        List<Achievement> achievements = gameService.getUserAchievements(currentUser);
-        if (achievements.isEmpty()) {
-            System.out.println("У вас ще немає досягнень.");
-        } else {
-            for (Achievement a : achievements) {
-                System.out.println("- " + a.getName() + " (" + a.getRequirementDesc() + ")");
-            }
-        }
-    }
-}
-
-
-
-V1__Init_schema.sql
---------------------------------------------------
--- V1__Init_schema.sql
--- Створення структури бази даних для навчального застосунку (PostgreSQL)
-
--- 1. Таблиця Користувачів (Студентів)
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Таблиця Предметів/Тем курсу
-CREATE TABLE subjects (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    description TEXT
-);
-
--- 3. Таблиця Навчальних Ігор/Активностей
-CREATE TABLE games (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    subject_id INT NOT NULL,
-    title VARCHAR(150) NOT NULL,
-    max_score INT NOT NULL,
-    CONSTRAINT fk_subject
-      FOREIGN KEY (subject_id) 
-      REFERENCES subjects(id) 
-      ON DELETE CASCADE
-);
-
--- 4. Таблиця Ігрових Сесій (Статистика успішності)
-CREATE TABLE game_sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    game_id INT NOT NULL,
-    score INT NOT NULL,
-    mistakes_count INT DEFAULT 0,
-    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user_session
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE,
-    CONSTRAINT fk_game_session
-      FOREIGN KEY (game_id) 
-      REFERENCES games(id) 
-      ON DELETE CASCADE
-);
-
--- 5. Таблиця Досягнень
-CREATE TABLE achievements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    requirement_desc VARCHAR(255) NOT NULL
-);
-
--- 6. Таблиця Здобутих досягнень користувачів
-CREATE TABLE user_achievements (
-    user_id INT NOT NULL,
-    achievement_id INT NOT NULL,
-    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, achievement_id),
-    CONSTRAINT fk_ua_user
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE,
-    CONSTRAINT fk_ua_achieve
-      FOREIGN KEY (achievement_id) 
-      REFERENCES achievements(id) 
-      ON DELETE CASCADE
-);
-
-
-
-V2__Seed_data.sql
---------------------------------------------------
--- V2__Seed_data.sql
--- Наповнення створених таблиць тестовими даними (дампи даних) для перевірки працездатності
-
--- 1. Додавання тем
-INSERT INTO subjects (name, description) VALUES
-('Математика: Дроби', 'Основи роботи зі звичайними та десятковими дробами'),
-('Історія України', 'Ключові події 20-го століття'),
-('Програмування', 'Базові поняття алгоритмізації');
-
--- 2. Додавання ігор/активностей (прив'язано до тем)
-INSERT INTO games (subject_id, title, max_score) VALUES
-(1, 'Знайди спільний знаменник', 100),
-(1, 'Дробовий пазл', 50),
-(2, 'Хронологія: УНР', 100),
-(3, 'Склади алгоритм', 200);
-
--- 3. Додавання користувачів
-INSERT INTO users (username, email) VALUES
-('Олександр', 'alex@example.com'),
-('Марія', 'maria@example.com'),
-('Іван', 'ivan@example.com');
-
--- 4. Додавання ігрових сесій (ЗБІР СТАТИСТИКИ УСПІШНОСТІ)
-INSERT INTO game_sessions (user_id, game_id, score, mistakes_count, completed_at) VALUES
-(1, 1, 90, 1, '2023-10-01 14:00:00'),
-(1, 2, 50, 0, '2023-10-01 14:15:00'),
-(2, 1, 60, 4, '2023-10-02 10:00:00'),
-(3, 3, 100, 0, '2023-10-03 16:30:00'),
-(2, 3, 80, 2, '2023-10-03 16:45:00'),
-(3, 4, 180, 1, '2023-10-04 12:00:00'),
-(1, 4, 200, 0, '2023-10-04 13:00:00');
-
--- 5. Додавання довідника досягнень
-INSERT INTO achievements (name, requirement_desc) VALUES
-('Перші кроки', 'Завершено першу гру у застосунку'),
-('Ідеально!', 'Гру завершено з максимальною оцінкою і без жодної помилки'),
-('Знавець Історії', 'Набрано більше 80 балів у грі з історії'),
-('Юний програміст', 'Успішно пройдено гру "Склади алгоритм"');
-
--- 6. Присвоєння досягнень (Зв'язок M:M на практиці)
-INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES
-(1, 1, '2023-10-01 14:00:00'),
-(1, 2, '2023-10-01 14:15:00'),
-(2, 1, '2023-10-02 10:00:00'),
-(3, 2, '2023-10-03 16:30:00'),
-(3, 3, '2023-10-03 16:30:00'),
-(2, 3, '2023-10-03 16:45:00'),
-(1, 4, '2023-10-04 13:00:00');
-
-
-
-V3__Add_password_to_users.sql
---------------------------------------------------
--- V3__Add_password_to_users.sql
--- Додаємо поле пароля для можливості логіну та реєстрації
-ALTER TABLE users ADD COLUMN password VARCHAR(255) DEFAULT '12345';
-
-
-
-V4__Add_questions_table.sql
---------------------------------------------------
--- V4__Add_questions_table.sql
-
-CREATE TABLE questions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    game_id INT NOT NULL,
-    question_text VARCHAR(255) NOT NULL,
-    correct_answer VARCHAR(100) NOT NULL,
-    CONSTRAINT fk_game_questions
-      FOREIGN KEY (game_id) 
-      REFERENCES games(id) 
-      ON DELETE CASCADE
-);
-
--- Seed initial questions for Math (game_id = 1)
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (1, '1. Скільки буде 1/2 + 1/2?', '1');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (1, '2. Скільки буде 3/4 - 1/4?', '2/4');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (1, '3. Знаменник дробу 5/8 це:', '8');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (1, '4. Чисельник дробу 3/7 це:', '3');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (1, '5. Скільки буде 1/3 + 1/3?', '2/3');
-
--- Seed initial questions for History (game_id = 3)
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (3, '1. В якому році проголошено незалежність УНР?', '1918');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (3, '2. Хто був першим президентом УНР? (Прізвище)', 'Грушевський');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (3, '3. В якому місті підписали Акт Злуки?', 'Київ');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (3, '4. Рік Акту Злуки УНР та ЗУНР:', '1919');
-INSERT INTO questions (game_id, question_text, correct_answer) VALUES (3, '5. Як називався уряд УНР у 1917 році?', 'Генеральний Секретаріат');
-
-
-
-AbstractIntegrationTest.java
---------------------------------------------------
-package com.mysuperproject.dao;
-
-import com.mysuperproject.util.PropertiesUtil;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.BeforeAll;
-
-public abstract class AbstractIntegrationTest {
-
-    @BeforeAll
-    static void beforeAll() {
-        String url =
-                "jdbc:h2:mem:students_db_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE";
-        String username = "sa";
-        String password = "";
-
-        // Run Flyway migrations
-        Flyway flyway =
-                Flyway.configure()
-                        .dataSource(url, username, password)
-                        .locations("classpath:db/migration")
-                        .cleanDisabled(false)
-                        .load();
-
-        flyway.clean();
-        flyway.migrate();
-
-        // Overwrite properties so DAOs use H2 DB
-        PropertiesUtil.set("db.url", url);
-        PropertiesUtil.set("db.username", username);
-        PropertiesUtil.set("db.password", password);
-    }
-}
-
-
-
-DaoIntegrationTest.java
---------------------------------------------------
-package com.mysuperproject.dao;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.mysuperproject.entity.*;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.Test;
-
-public class DaoIntegrationTest extends AbstractIntegrationTest {
-
-    @Test
-    void testUserDao() {
-        UserDao userDao = new UserDao();
-
-        // Create
-        User user =
-                User.builder()
-                        .username("testuser")
-                        .email("test@example.com")
-                        .createdAt(LocalDateTime.now())
-                        .build();
-        User savedUser = userDao.save(user);
-
-        assertThat(savedUser.getId()).isNotNull();
-
-        // Read
-        Optional<User> foundUser = userDao.findById(savedUser.getId());
-        assertThat(foundUser).isPresent();
-        assertThat(foundUser.get().getUsername()).isEqualTo("testuser");
-
-        // Update
-        savedUser.setUsername("updateduser");
-        userDao.update(savedUser);
-
-        Optional<User> updatedUser = userDao.findById(savedUser.getId());
-        assertThat(updatedUser.get().getUsername()).isEqualTo("updateduser");
-
-        // Find All
-        List<User> users = userDao.findAll();
-        assertThat(users).isNotEmpty();
-
-        // Delete
-        userDao.delete(savedUser.getId());
-        assertThat(userDao.findById(savedUser.getId())).isEmpty();
-    }
-
-    @Test
-    void testSubjectDao() {
-        SubjectDao subjectDao = new SubjectDao();
-
-        Subject subject = Subject.builder().name("Math").description("Mathematics").build();
-        Subject savedSubject = subjectDao.save(subject);
-        assertThat(savedSubject.getId()).isNotNull();
-
-        Optional<Subject> foundSubject = subjectDao.findById(savedSubject.getId());
-        assertThat(foundSubject).isPresent();
-        assertThat(foundSubject.get().getName()).isEqualTo("Math");
-
-        subjectDao.delete(savedSubject.getId());
-        assertThat(subjectDao.findById(savedSubject.getId())).isEmpty();
-    }
-
-    @Test
-    void testGameDao() {
-        SubjectDao subjectDao = new SubjectDao();
-        Subject subject = subjectDao.save(Subject.builder().name("Science").build());
-
-        GameDao gameDao = new GameDao();
-        Game game =
-                Game.builder()
-                        .subjectId(subject.getId())
-                        .title("Physics Quiz")
-                        .maxScore(100)
-                        .build();
-        Game savedGame = gameDao.save(game);
-        assertThat(savedGame.getId()).isNotNull();
-
-        Optional<Game> foundGame = gameDao.findById(savedGame.getId());
-        assertThat(foundGame).isPresent();
-        assertThat(foundGame.get().getTitle()).isEqualTo("Physics Quiz");
-
-        gameDao.delete(savedGame.getId());
-        subjectDao.delete(subject.getId());
-    }
-
-    @Test
-    void testAchievementDao() {
-        AchievementDao achievementDao = new AchievementDao();
-
-        Achievement achievement =
-                Achievement.builder().name("First Win").requirementDesc("Win a game").build();
-        Achievement savedAchievement = achievementDao.save(achievement);
-        assertThat(savedAchievement.getId()).isNotNull();
-
-        Optional<Achievement> foundAchievement = achievementDao.findById(savedAchievement.getId());
-        assertThat(foundAchievement).isPresent();
-
-        achievementDao.delete(savedAchievement.getId());
-    }
-
-    @Test
-    void testGameSessionDao() {
-        // Setup dependencies
-        UserDao userDao = new UserDao();
-        User user =
-                userDao.save(
-                        User.builder().username("sessionuser").email("sess@example.com").build());
-
-        SubjectDao subjectDao = new SubjectDao();
-        Subject subject = subjectDao.save(Subject.builder().name("History").build());
-
-        GameDao gameDao = new GameDao();
-        Game game =
-                gameDao.save(
-                        Game.builder()
-                                .subjectId(subject.getId())
-                                .title("History Quiz")
-                                .maxScore(10)
-                                .build());
-
-        // Test GameSession
-        GameSessionDao sessionDao = new GameSessionDao();
-        GameSession session =
-                GameSession.builder()
-                        .userId(user.getId())
-                        .gameId(game.getId())
-                        .score(8)
-                        .mistakesCount(2)
-                        .completedAt(LocalDateTime.now())
-                        .build();
-
-        GameSession savedSession = sessionDao.save(session);
-        assertThat(savedSession.getId()).isNotNull();
-
-        Optional<GameSession> foundSession = sessionDao.findById(savedSession.getId());
-        assertThat(foundSession).isPresent();
-        assertThat(foundSession.get().getScore()).isEqualTo(8);
-
-        // Cleanup
-        sessionDao.delete(savedSession.getId());
-        gameDao.delete(game.getId());
-        subjectDao.delete(subject.getId());
-        userDao.delete(user.getId());
-    }
-
-    @Test
-    void testUserAchievements() {
-        UserDao userDao = new UserDao();
-        User user =
-                userDao.save(
-                        User.builder()
-                                .username("achieveuser")
-                                .email("achieve@example.com")
-                                .build());
-
-        AchievementDao achievementDao = new AchievementDao();
-        Achievement achievement =
-                achievementDao.save(
-                        Achievement.builder().name("Master").requirementDesc("Mastered").build());
-
-        // Assign achievement
-        achievementDao.assignAchievementToUser(user.getId(), achievement.getId());
-
-        // Find achievements for user
-        List<Achievement> userAchievements = achievementDao.findAchievementsByUserId(user.getId());
-        assertThat(userAchievements).hasSize(1);
-        assertThat(userAchievements.get(0).getName()).isEqualTo("Master");
-
-        // Cleanup
-        achievementDao.delete(achievement.getId());
-        userDao.delete(user.getId());
-    }
-}
-
-
-
-DDL.sql
---------------------------------------------------
--- DDL.sql
--- Створення структури бази даних для навчального застосунку (SQLite)
-
--- 1. Таблиця Користувачів (Студентів)
--- Класифікація: Стрижнева сутність (Master / Довідник).
--- Нормальна форма: 3НФ. 
--- - Всі атрибути неподільні та атомарні (1НФ).
--- - Первинний ключ id, усі неключові атрибути (username, email) цілком залежать від нього (2НФ).
--- - Немає транзитивних залежностей (один неключовий атрибут не визначає інший) (3НФ).
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Таблиця Предметів/Тем курсу
--- Класифікація: Стрижнева сутність / Довідник.
--- Нормальна форма: 3НФ. 
--- - Атрибути скалярні (1НФ), залежать виключно від id (2НФ, 3НФ).
-CREATE TABLE subjects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(150) NOT NULL,
-    description TEXT
-);
-
--- 3. Таблиця Навчальних Ігор/Активностей
--- Класифікація: Залежна довідкова таблиця (Detail).
--- Нормальна форма: 3НФ. 
--- - Підпорядковується subjects через зв'язок 1:M. name та max_score не залежать ні від чого, окрім ідентифікатора самої гри.
-CREATE TABLE games (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    subject_id INT NOT NULL,
-    title VARCHAR(150) NOT NULL,
-    max_score INT NOT NULL,
-    CONSTRAINT fk_subject
-      FOREIGN KEY (subject_id) 
-      REFERENCES subjects(id) 
-      ON DELETE CASCADE
-);
-
--- 4. Таблиця Ігрових Сесій (Статистика успішності)
--- Класифікація: Асоціативна таблиця (Перетин). 
--- Фізично реалізує зв'язок "Багато до Багатьох" (M:M) між Users та Games. Має власні атрибути даних.
--- Нормальна форма: 3НФ. 
--- - Первинний ключ - сурогатний (id). Атрибути score та mistakes_count залежать безпосередньо від факту конкретного проходження (сесії), а не транзитивно і не частково від ключів.
-CREATE TABLE game_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INT NOT NULL,
-    game_id INT NOT NULL,
-    score INT NOT NULL,
-    mistakes_count INT DEFAULT 0,
-    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user_session
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE,
-    CONSTRAINT fk_game_session
-      FOREIGN KEY (game_id) 
-      REFERENCES games(id) 
-      ON DELETE CASCADE
-);
-
--- 5. Таблиця Досягнень
--- Класифікація: Довідкова таблиця (Стрижнева).
--- Нормальна форма: 3НФ. Описує незалежну сутність для гейміфікації та винагород.
-CREATE TABLE achievements (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(100) NOT NULL,
-    requirement_desc VARCHAR(255) NOT NULL
-);
-
--- 6. Таблиця Здобутих досягнень користувачів
--- Класифікація: Асоціативна таблиця (Перетин). 
--- Реалізує зв'язок "Багато до Багатьох" (M:M) між Users та Achievements.
--- Нормальна форма: 3НФ. 
--- - Складений первинний ключ (user_id, achievement_id). Єдиний неключовий атрибут earned_at залежить від всього ключа цілком (2НФ), тобто від факту досягнення конкретним користувачем, відсутні транзитивні залежності (3НФ).
-CREATE TABLE user_achievements (
-    user_id INT NOT NULL,
-    achievement_id INT NOT NULL,
-    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, achievement_id),
-    CONSTRAINT fk_ua_user
-      FOREIGN KEY (user_id) 
-      REFERENCES users(id) 
-      ON DELETE CASCADE,
-    CONSTRAINT fk_ua_achieve
-      FOREIGN KEY (achievement_id) 
-      REFERENCES achievements(id) 
-      ON DELETE CASCADE
-);
-
-
-
-DML.sql
---------------------------------------------------
--- DML.sql
--- Наповнення створених таблиць тестовими даними (дампи даних) для перевірки працездатності
-
--- 1. Додавання тем
-INSERT INTO subjects (name, description) VALUES
-('Математика: Дроби', 'Основи роботи зі звичайними та десятковими дробами'),
-('Історія України', 'Ключові події 20-го століття'),
-('Програмування', 'Базові поняття алгоритмізації');
-
--- 2. Додавання ігор/активностей (прив'язано до тем)
-INSERT INTO games (subject_id, title, max_score) VALUES
-(1, 'Знайди спільний знаменник', 100),
-(1, 'Дробовий пазл', 50),
-(2, 'Хронологія: УНР', 100),
-(3, 'Склади алгоритм', 200);
-
--- 3. Додавання користувачів
-INSERT INTO users (username, email) VALUES
-('Олександр', 'alex@example.com'),
-('Марія', 'maria@example.com'),
-('Іван', 'ivan@example.com');
-
--- 4. Додавання ігрових сесій (ЗБІР СТАТИСТИКИ УСПІШНОСТІ)
--- Тут реалізовано логування: хто (user), в що (game), коли грав, скільки балів отримав та скільки помилок зробив
-INSERT INTO game_sessions (user_id, game_id, score, mistakes_count, completed_at) VALUES
-(1, 1, 90, 1, '2023-10-01 14:00:00'),
-(1, 2, 50, 0, '2023-10-01 14:15:00'),
-(2, 1, 60, 4, '2023-10-02 10:00:00'),
-(3, 3, 100, 0, '2023-10-03 16:30:00'),
-(2, 3, 80, 2, '2023-10-03 16:45:00'),
-(3, 4, 180, 1, '2023-10-04 12:00:00'),
-(1, 4, 200, 0, '2023-10-04 13:00:00');
-
--- 5. Додавання довідника досягнень
-INSERT INTO achievements (name, requirement_desc) VALUES
-('Перші кроки', 'Завершено першу гру у застосунку'),
-('Ідеально!', 'Гру завершено з максимальною оцінкою і без жодної помилки'),
-('Знавець Історії', 'Набрано більше 80 балів у грі з історії'),
-('Юний програміст', 'Успішно пройдено гру "Склади алгоритм"');
-
--- 6. Присвоєння досягнень (Зв'язок M:M на практиці)
-INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES
-(1, 1, '2023-10-01 14:00:00'), -- Олександр здобув "Перші кроки"
-(1, 2, '2023-10-01 14:15:00'), -- Олександр здобув "Ідеально!"
-(2, 1, '2023-10-02 10:00:00'), -- Марія здобула "Перші кроки"
-(3, 2, '2023-10-03 16:30:00'), -- Іван здобув "Ідеально!"
-(3, 3, '2023-10-03 16:30:00'), -- Іван здобув "Знавець Історії"
-(2, 3, '2023-10-03 16:45:00'), -- Марія здобула "Знавець Історії"
-(1, 4, '2023-10-04 13:00:00'); -- Олександр здобув "Юний програміст"
 
 
 
