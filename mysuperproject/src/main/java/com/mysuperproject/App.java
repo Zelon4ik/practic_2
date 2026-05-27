@@ -25,6 +25,13 @@ public class App extends Application {
     public void start(Stage stage) {
         primaryStage = stage;
         primaryStage.setTitle("Smart-тренажер правопису з моніторингом прогресу");
+        try {
+            primaryStage
+                    .getIcons()
+                    .add(new javafx.scene.image.Image(App.class.getResourceAsStream("/icon.png")));
+        } catch (Exception e) {
+            System.err.println("Could not load application icon: " + e.getMessage());
+        }
         showLoginView();
         primaryStage.show();
     }

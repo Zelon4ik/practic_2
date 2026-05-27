@@ -9,14 +9,14 @@ fi
 echo "Generating macOS DMG Installer..."
 jpackage \
   --type dmg \
-  --name "StudentProgressTracker" \
+  --name "SmartSpellingTrainer" \
   --app-version "1.0.0" \
-  --vendor "Student" \
+  --vendor "Nazarii Povkhanych" \
   --input target/ \
   --main-jar mysuperproject-fat.jar \
   --main-class com.mysuperproject.Launcher \
   --dest dist/ \
-  --mac-package-name "student-progress-tracker"
+  --mac-package-name "smart-spelling-trainer"
 
 if [ $? -ne 0 ]; then
     echo "Failed to build macOS installer."

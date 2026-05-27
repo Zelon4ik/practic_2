@@ -9,9 +9,9 @@ fi
 echo "Generating Linux DEB Installer..."
 jpackage \
   --type deb \
-  --name "student-progress-tracker" \
+  --name "smart-spelling-trainer" \
   --app-version "1.0.0" \
-  --vendor "Student" \
+  --vendor "Nazarii Povkhanych" \
   --input target/ \
   --main-jar mysuperproject-fat.jar \
   --main-class com.mysuperproject.Launcher \
